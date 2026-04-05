@@ -1,6 +1,6 @@
 import express from 'express'
 import isLogin from '../middleware/isLogin.js'
-import { getCorrentChatters ,  getUserBySearch } from '../routControlers/userhandlerControler.js'
+import { getCorrentChatters ,  getUserBySearch } from '../routControlers/userhandlercontroler.js'
 const router = express.Router()
 
 router.get('/search',isLogin,getUserBySearch);
