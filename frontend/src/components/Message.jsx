@@ -1,27 +1,4 @@
-// import { useAuth } from "../context/AuthContext";
 
-// const Message = ({ message }) => {
-//   const { authUser } = useAuth();
-  
-//   // fix: toString() compare karo
-//   const isMine = message.senderId?.toString() === authUser?._id?.toString();
-
-//   const timeStr = new Date(message.createdAt).toLocaleTimeString([], {
-//     hour: "2-digit",
-//     minute: "2-digit",
-//   });
-
-//   return (
-//     <div className={`chat ${isMine ? "chat-end" : "chat-start"}`}>
-//       <div className={`chat-bubble text-sm max-w-xs break-words shadow-sm ${isMine ? "chat-bubble-primary" : "chat-bubble-accent"}`}>
-//         {message.message}
-//       </div>
-//       <div className="chat-footer opacity-40 text-xs mt-0.5">{timeStr}</div>
-//     </div>
-//   );
-// };
-
-// export default Message;
 import { useAuth } from "../context/AuthContext";
 
 const Message = ({ message }) => {

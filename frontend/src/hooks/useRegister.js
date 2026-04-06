@@ -20,9 +20,9 @@ const useRegister = () => {
 
     try {
       const { data } = await axiosInstance.post("/auth/register", {
-        fullname,   // ✅ lowercase n — matches backend
+        fullname,   // lowercase n  matches backend
         username,
-        email,      // ✅ backend needs this too
+        email,      //  backend needs this too
         password,
         gender,
       });

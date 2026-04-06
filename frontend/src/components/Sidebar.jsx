@@ -75,7 +75,7 @@ const Sidebar = () => {
               user={user}
               isSelected={selectedUser?._id === user._id}
               isOnline={onlineUsers.includes(user._id)}
-              onClick={() => setSelectedUser(user)}  // ✅ sets in Zustand store
+              onClick={() => setSelectedUser(user)}  //
             />
           ))
         )}

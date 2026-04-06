@@ -1,19 +1,4 @@
-// import { create } from 'zustand'
 
-// const useChatStore = create((set) => ({
-//     selectedUser: null,
-//     messages: [],
-//     onlineUsers: [],
-
-//     setSelectedUser: (user) => set({ selectedUser: user }),
-//     setMessages: (messages) => set({ messages }),
-//     addMessage: (message) => set((state) => ({ 
-//         messages: [...state.messages, message] 
-//     })),
-//     setOnlineUsers: (users) => set({ onlineUsers: users }),
-// }))
-
-// export default useChatStore
 
 
 import { create } from 'zustand'
@@ -41,7 +26,7 @@ const useChatStore = create((set, get) => ({
         const isFromSelectedUser = state.selectedUser?._id?.toString() === senderId;
 
         if (isIncoming && !isFromSelectedUser) {
-            // message from someone not currently open → increment badge only
+          
             set((s) => ({
                 unreadCounts: {
                     ...s.unreadCounts,
@@ -49,7 +34,7 @@ const useChatStore = create((set, get) => ({
                 }
             }));
         } else {
-            // ✅ always append to messages — whether sent or received in active chat
+            
             set((s) => ({ messages: [...s.messages, message] }));
         }
     },
