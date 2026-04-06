@@ -1,3 +1,5 @@
+
+
 // import { Server } from 'socket.io';
 // import http from 'http';
 // import express from 'express';
@@ -7,7 +9,13 @@
 
 // const io = new Server(server, {
 //     cors: {
-//         origin: ['http://localhost:5174'], // ✅ local dev — change to your deployed URL in production
+//         origin: [
+//             'http://localhost:5173',
+//             'http://localhost:5174',
+//             'http://localhost:5175',
+//             'http://localhost:5176',
+//             'https://slrtech-chatapp.onrender.com', // keep for production
+//         ],
 //         methods: ["GET", "POST"],
 //         credentials: true,
 //     }
@@ -17,7 +25,7 @@
 //     return userSocketmap[receverId];
 // };
 
-// const userSocketmap = {}; // { userId: socketId }
+// const userSocketmap = {};
 
 // io.on('connection', (socket) => {
 //     const userId = socket.handshake.query.userId;
@@ -26,7 +34,6 @@
 //         userSocketmap[userId] = socket.id;
 //     }
 
-//     // emit online users list to everyone
 //     io.emit("getOnlineUsers", Object.keys(userSocketmap));
 
 //     socket.on('disconnect', () => {
@@ -51,7 +58,7 @@ const io = new Server(server, {
             'http://localhost:5174',
             'http://localhost:5175',
             'http://localhost:5176',
-            'https://slrtech-chatapp.onrender.com', // keep for production
+            'https://chatapp-production-856d.up.railway.app',
         ],
         methods: ["GET", "POST"],
         credentials: true,
