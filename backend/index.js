@@ -78,11 +78,17 @@ app.use('/api/auth', authRouter);
 app.use('/api/message', messageRouter);
 app.use('/api/user', userRouter);
 
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-app.get('/{*path}', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+// app.get('/{*path}', (req, res) => {
+//     res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+// });
+app.get("/", (req, res) => {
+    res.send("Backend is running 🚀");
 });
+
+
+
 
 const PORT = process.env.PORT || 3000;
 
