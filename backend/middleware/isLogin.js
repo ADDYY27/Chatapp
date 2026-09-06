@@ -4,8 +4,8 @@ import User from '../Models/userModels.js'
 const isLogin = async (req, res, next) => {
     try {
         const token = req.cookies.jwt;
-         console.log("Cookies:", req.cookies); // add karo
-        console.log("Headers:", req.headers.cookie); // add karo
+        //  console.log("Cookies:", req.cookies);
+        // console.log("Headers:", req.headers.cookie); 
         
         if (!token) return res.status(401).send({ success: false, message: "User Unauthorize" });
         

@@ -1,5 +1,3 @@
-
-
 import { useEffect, useRef } from "react";
 import useGetMessages from "../hooks/useGetMessages";
 import useSendMessage from "../hooks/useSendMessage";
@@ -16,24 +14,6 @@ const ChatWindow = () => {
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    if (!socket) return;
-
-    const handleNewMessage = (newMessage) => {
-     
-      const { selectedUser: currentSelected, messages: currentMessages, setMessages: currentSetMessages } = useChatStore.getState();
-      const senderId = newMessage.senderId?.toString();
-      const selectedId = currentSelected?._id?.toString();
-
-      if (senderId === selectedId) {
-        currentSetMessages([...currentMessages, newMessage]);
-      }
-    };
-
-    socket.on("newMessage", handleNewMessage);
-    return () => socket.off("newMessage", handleNewMessage);
-  }, [socket]); // 
-
-  useEffect(() => {
     setTimeout(() => {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 100);
@@ -43,13 +23,29 @@ const ChatWindow = () => {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-base-100 gap-4">
         <div className="w-20 h-20 rounded-full bg-base-300 flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10 text-base-content/20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-10 h-10 text-base-content/20"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1}
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            />
           </svg>
         </div>
+
         <div className="text-center">
-          <p className="font-semibold text-base-content/40 text-lg">No conversation selected</p>
-          <p className="text-sm text-base-content/30 mt-1">Pick someone from the sidebar to start chatting</p>
+          <p className="font-semibold text-base-content/40 text-lg">
+            No conversation selected
+          </p>
+          <p className="text-sm text-base-content/30 mt-1">
+            Pick someone from the sidebar to start chatting
+          </p>
         </div>
       </div>
     );
@@ -65,13 +61,22 @@ const ChatWindow = () => {
           <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-content font-bold">
             {initial}
           </div>
+
           {isOnline && (
             <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success rounded-full border-2 border-base-200" />
           )}
         </div>
+
         <div>
-          <p className="font-semibold text-base-content text-sm">{selectedUser.fullname}</p>
-          <p className={`text-xs ${isOnline ? "text-success" : "text-base-content/40"}`}>
+          <p className="font-semibold text-base-content text-sm">
+            {selectedUser.fullname}
+          </p>
+
+          <p
+            className={`text-xs ${
+              isOnline ? "text-success" : "text-base-content/40"
+            }`}
+          >
             {isOnline ? "Online" : "Offline"}
           </p>
         </div>
@@ -91,6 +96,7 @@ const ChatWindow = () => {
             <Message key={msg._id} message={msg} />
           ))
         )}
+
         <div ref={bottomRef} />
       </div>
 

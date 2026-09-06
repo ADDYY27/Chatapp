@@ -12,8 +12,7 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const { authUser } = useAuth();
-  const { setOnlineUsers } = useChatStore();
-
+const { setOnlineUsers, addMessage } = useChatStore();
   useEffect(() => {
     if (authUser) {
      const newSocket = io(import.meta.env.VITE_SERVER_URL, {
@@ -26,20 +25,8 @@ export const SocketProvider = ({ children }) => {
 
       // always runs, no matter which chat is open
       newSocket.on("newMessage", (newMessage) => {
-        const { selectedUser } = useChatStore.getState();
-        const senderId = newMessage.senderId?.toString();
-        const selectedId = selectedUser?._id?.toString();
-
-       
-        if (senderId !== selectedId) {
-          useChatStore.setState((s) => ({
-            unreadCounts: {
-              ...s.unreadCounts,
-              [senderId]: (s.unreadCounts[senderId] || 0) + 1,
-            },
-          }));
-        }
-      });
+    addMessage(newMessage, authUser._id);
+});
 
       setSocket(newSocket);
       return () => newSocket.close();
