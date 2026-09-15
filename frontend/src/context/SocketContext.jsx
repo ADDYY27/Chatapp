@@ -1,5 +1,3 @@
-
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
@@ -12,10 +10,17 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const { authUser } = useAuth();
-const { setOnlineUsers, addMessage } = useChatStore();
+
+  const {
+    setOnlineUsers,
+    addMessage,
+    markMessagesAsRead,
+    addGroupMessage,
+  } = useChatStore();
+
   useEffect(() => {
     if (authUser) {
-     const newSocket = io(import.meta.env.VITE_SERVER_URL, {
+      const newSocket = io(import.meta.env.VITE_SERVER_URL, {
         query: { userId: authUser._id },
       });
 
@@ -23,12 +28,25 @@ const { setOnlineUsers, addMessage } = useChatStore();
         setOnlineUsers(users);
       });
 
-      // always runs, no matter which chat is open
+      // 1-to-1 messages
       newSocket.on("newMessage", (newMessage) => {
-    addMessage(newMessage, authUser._id);
-});
+        addMessage(newMessage, authUser._id);
+      });
+
+      // Read receipts
+      newSocket.on("messagesRead", ({ userId }) => {
+        markMessagesAsRead(userId);
+      });
+
+      // Group messages
+      newSocket.on("groupMessage", (newMessage) => {
+        console.log("GROUP MESSAGE RECEIVED:", newMessage);
+
+        addGroupMessage(newMessage, authUser._id);
+      });
 
       setSocket(newSocket);
+
       return () => newSocket.close();
     } else {
       if (socket) {

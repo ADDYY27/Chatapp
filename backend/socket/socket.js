@@ -1,5 +1,3 @@
-
-
 import { Server } from 'socket.io';
 import http from 'http';
 import express from 'express';
@@ -28,6 +26,7 @@ export const getReciverSocketId = (receverId) => {
 const userSocketmap = {};
 
 io.on('connection', (socket) => {
+
     const userId = socket.handshake.query.userId;
 
     if (userId && userId !== "undefined") {
@@ -36,12 +35,32 @@ io.on('connection', (socket) => {
 
     io.emit("getOnlineUsers", Object.keys(userSocketmap));
 
-  socket.on('disconnect', () => {
-    if (userSocketmap[userId] === socket.id) {
-        delete userSocketmap[userId];
-        io.emit("getOnlineUsers", Object.keys(userSocketmap));
-    }
+
+    // ================= GROUP ROOMS =================
+
+   socket.on("joinGroup", (groupId) => {
+    console.log("USER JOINED GROUP:", groupId);
+
+    socket.join(`group:${groupId}`);
 });
+    socket.on("leaveGroup", (groupId) => {
+        socket.leave(`group:${groupId}`);
+    });
+
+
+    // ================= DISCONNECT =================
+
+    socket.on('disconnect', () => {
+        if (userSocketmap[userId] === socket.id) {
+            delete userSocketmap[userId];
+
+            io.emit(
+                "getOnlineUsers",
+                Object.keys(userSocketmap)
+            );
+        }
+    });
+
 });
 
 export { app, io, server };

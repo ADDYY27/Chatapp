@@ -1,10 +1,11 @@
-
 import { useAuth } from "../context/AuthContext";
 
 const Message = ({ message }) => {
   const { authUser } = useAuth();
 
-  const senderId = message.senderId?._id?.toString() || message.senderId?.toString();
+  const senderId =
+    message.senderId?._id?.toString() || message.senderId?.toString();
+
   const myId = authUser?._id?.toString();
   const isMine = senderId === myId;
 
@@ -27,10 +28,21 @@ const Message = ({ message }) => {
         >
           {message.message}
         </div>
-        {timeStr && (
-          <span className={`text-xs opacity-40 ${isMine ? "text-right" : "text-left"}`}>
-            {timeStr}
-          </span>
+
+        {(timeStr || isMine) && (
+          <div
+            className={`flex items-center gap-1 text-xs opacity-40 ${
+              isMine ? "justify-end" : "justify-start"
+            }`}
+          >
+            {timeStr && <span>{timeStr}</span>}
+
+            {isMine && (
+              <span className={message.isRead ? "text-info opacity-100" : ""}>
+                {message.isRead ? "✓✓" : "✓"}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -38,6 +50,3 @@ const Message = ({ message }) => {
 };
 
 export default Message;
-
-
-
