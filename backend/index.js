@@ -24,6 +24,7 @@ app.use(cors({
         'http://localhost:5174',
         'http://localhost:5175',
         'http://localhost:5176',
+        'http://localhost:8080',
         'https://chatapp-production-856d.up.railway.app',
     ],
     credentials: true
