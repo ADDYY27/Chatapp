@@ -25,7 +25,7 @@ app.use(cors({
         'http://localhost:5175',
         'http://localhost:5176',
         'http://localhost:8080',
-        // 'https://chatapp-production-856d.up.railway.app',
+        'https://chatapp-production-856d.up.railway.app',
         'https://chatapp-ivory-eta.vercel.app',
     ],
     credentials: true
