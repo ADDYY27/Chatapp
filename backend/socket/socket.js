@@ -13,6 +13,7 @@ const io = new Server(server, {
             'http://localhost:5175',
             'http://localhost:5176',
             'https://chatapp-production-856d.up.railway.app',
+            'https://chatapp-ivory-eta.vercel.app',
         ],
         methods: ["GET", "POST"],
         credentials: true,
