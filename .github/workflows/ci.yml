@@ -55,3 +55,5 @@ jobs:
         run: |
           docker push addy27/chattr-backend:latest
           docker push addy27/chattr-frontend:latest
+
+          # Docker Hub CI/CD pipeline
