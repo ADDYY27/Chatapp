@@ -39,3 +39,19 @@ jobs:
 
       - name: Build frontend Docker image
         run: docker build -t chattr-frontend ./frontend
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag Docker images
+        run: |
+          docker tag chattr-backend:latest addy27/chattr-backend:latest
+          docker tag chattr-frontend:latest addy27/chattr-frontend:latest
+
+      - name: Push Docker images
+        run: |
+          docker push addy27/chattr-backend:latest
+          docker push addy27/chattr-frontend:latest
