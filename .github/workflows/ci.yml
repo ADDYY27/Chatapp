@@ -14,46 +14,54 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
+      # 3. Install backend dependencies
       - name: Install backend dependencies
         working-directory: backend
         run: npm ci
 
+      # 4. Install frontend dependencies
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
 
+      # 5. Build frontend
       - name: Build frontend
         working-directory: frontend
         run: npm run build
 
+      # 6. Build backend Docker image
       - name: Build backend Docker image
         run: docker build -t chattr-backend ./backend
 
+      # 7. Build frontend Docker image
       - name: Build frontend Docker image
         run: docker build -t chattr-frontend ./frontend
 
+      # 8. Login to Docker Hub
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 9. Tag Docker images
       - name: Tag Docker images
         run: |
-          docker tag chattr-backend:latest addy27/chattr-backend:latest
-          docker tag chattr-frontend:latest addy27/chattr-frontend:latest
+          docker tag chattr-backend:latest addyy27/chattr-backend:latest
+          docker tag chattr-frontend:latest addyy27/chattr-frontend:latest
 
+      # 10. Push Docker images
       - name: Push Docker images
         run: |
-          docker push addy27/chattr-backend:latest
-          docker push addy27/chattr-frontend:latest
-
-          # Docker Hub CI/CD pipeline
+          docker push addyy27/chattr-backend:latest
+          docker push addyy27/chattr-frontend:latest
