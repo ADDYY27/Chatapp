@@ -5,35 +5,83 @@ on:
     workflows: ["Chattr CI"]
     types:
       - completed
+  workflow_dispatch:
+
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.2.2
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+      - name: Deploy to EC2 via SSH
+        env:
+          EC2_HOST_INPUT: ${{ secrets.EC2_HOST }}
+          EC2_USER_INPUT: ${{ secrets.EC2_USER }}
+          EC2_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          set -e
+
+          # Sanitize inputs (strip trailing/leading whitespace and carriage returns)
+          EC2_HOST=$(echo -n "$EC2_HOST_INPUT" | tr -d '\r\n ')
+          EC2_USER=$(echo -n "$EC2_USER_INPUT" | tr -d '\r\n ')
+
+          # 1. Setup ~/.ssh directory
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          # 2. Write private key safely (handling multiline or base64)
+          if echo "$EC2_KEY" | grep -q "BEGIN"; then
+            printf '%s\n' "$EC2_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          else
+            printf '%s\n' "$EC2_KEY" | base64 -d | tr -d '\r' > ~/.ssh/id_ed25519
+          fi
+
+          sed -i -e '$a\' ~/.ssh/id_ed25519 2>/dev/null || printf '\n' >> ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          # 3. Add EC2 host to known_hosts
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+          # 4. SSH into EC2 and execute deployment
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new "$EC2_USER@$EC2_HOST" << 'EOF'
+            set -e
+
+            echo "=== Pulling latest Docker images ==="
             docker pull addyy27/chattr-backend:latest
             docker pull addyy27/chattr-frontend:latest
 
+            echo "=== Stopping and removing old containers ==="
             docker stop chattr-backend || true
             docker rm chattr-backend || true
 
             docker stop chattr-frontend || true
             docker rm chattr-frontend || true
 
+            echo "=== Starting backend container ==="
             docker run -d \
               --name chattr-backend \
               -p 3000:3000 \
               --env-file ~/chattr-backend.env \
               addyy27/chattr-backend:latest
 
+            echo "=== Starting frontend container ==="
             docker run -d \
               --name chattr-frontend \
               -p 80:80 \
               addyy27/chattr-frontend:latest
+
+            echo "=== Waiting for services to initialize ==="
+            sleep 5
+
+            echo "=== Checking running containers ==="
+            docker ps
+
+            echo "=== Verifying backend health ==="
+            curl -f -s http://localhost:3000 || (echo "Backend health check failed!" && exit 1)
+
+            echo "=== Verifying frontend health ==="
+            curl -f -s -I http://localhost:80 | head -n 1 || (echo "Frontend health check failed!" && exit 1)
+
+            echo "=== CD Deployment Successful ==="
+          EOF
