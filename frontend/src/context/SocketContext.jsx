@@ -20,7 +20,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (authUser) {
-      const newSocket = io(import.meta.env.VITE_SERVER_URL, {
+      const newSocket = io("/", {
         query: { userId: authUser._id },
       });
 

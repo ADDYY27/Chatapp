@@ -9,7 +9,7 @@ const useRegister = () => {
   const { setAuthUser } = useAuth();
   const navigate = useNavigate();
 
-  const register = async ({ fullname, username, email, password, confirmPassword, gender }) => {
+  const register = async ({ fullname, username, email, password, confirmPassword, gender, profilepic }) => {
     setLoading(true);
 
     if (password !== confirmPassword) {
@@ -20,11 +20,12 @@ const useRegister = () => {
 
     try {
       const { data } = await axiosInstance.post("/auth/register", {
-        fullname,   // lowercase n  matches backend
+        fullname,
         username,
-        email,      //  backend needs this too
+        email,
         password,
         gender,
+        profilepic: profilepic || undefined,
       });
       setAuthUser(data);
       toast.success(`Account created! Welcome, ${data.fullname}!`);

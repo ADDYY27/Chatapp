@@ -23,8 +23,12 @@ const UserItem = ({
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        <div className="w-11 h-11 rounded-full bg-primary flex items-center justify-center text-primary-content font-bold text-lg">
-          {initial}
+        <div className="w-11 h-11 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content font-bold text-lg">
+          {user.profilepic ? (
+            <img src={user.profilepic} alt={user.fullname} className="w-full h-full object-cover" />
+          ) : (
+            initial
+          )}
         </div>
 
         {isOnline && (
