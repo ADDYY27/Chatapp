@@ -31,14 +31,16 @@ setActiveSection: (section) => set({ activeSection: section }),
             };
         }),
 
+    selectedUser: null,
+
     setSelectedUser: (user) =>
     set((state) => ({
         selectedUser: user,
         selectedGroup: null,
-        unreadCounts: {
+        unreadCounts: user ? {
             ...state.unreadCounts,
             [user._id]: 0,
-        },
+        } : state.unreadCounts,
     })),
 
     setMessages: (messages) => set({ messages }),
