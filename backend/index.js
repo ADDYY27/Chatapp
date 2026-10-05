@@ -12,6 +12,7 @@ import messageRouter from './rout/messageRout.js';
 import userRouter from './rout/userRout.js';
 import { app, server } from './socket/socket.js';
 import groupRouter from './rout/groupRout.js';
+import mongoose from "mongoose";
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ app.use(cors({
     credentials: true
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
 app.use('/api/auth', authRouter);
@@ -48,8 +49,19 @@ app.get("/", (req, res) => {
     res.send("Backend is running 🚀");
 });
 
+app.get("/health", (req, res) => {
+    if (mongoose.connection.readyState === 1) {
+        return res.status(200).json({
+            status: "ok",
+            database: "connected"
+        });
+    }
 
-
+    return res.status(503).json({
+        status: "not ready",
+        database: "disconnected"
+    });
+});
 
 const PORT = process.env.PORT || 3000;
 

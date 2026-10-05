@@ -17,7 +17,6 @@ const conversationSchema = mongoose.Schema(
             },
         ],
 
-        // Group chat fields
         isGroup: {
             type: Boolean,
             default: false,
@@ -33,6 +32,25 @@ const conversationSchema = mongoose.Schema(
             ref: "User",
             default: null,
         },
+
+        groupPic: {
+            type: String,
+            default: "",
+        },
+
+        // User-specific clear tracking
+        clearedBy: [
+            {
+                userId: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "User",
+                },
+                clearedAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+            },
+        ],
     },
     { timestamps: true }
 );
