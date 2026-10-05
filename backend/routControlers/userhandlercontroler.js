@@ -30,10 +30,12 @@ try {
 }
 export const getCorrentChatters = async (req, res) => {
     try {
-        const currentUserID = req.user._id; // fix: _conditions._id → _id
+        const currentUserID = req.user._id;
 
         const currentChatters = await Conversation.find({
-            participants: currentUserID
+            participants: currentUserID,
+            isGroup: false,
+            clearedBy: { $not: { $elemMatch: { userId: currentUserID } } }
         }).sort({ updatedAt: -1 });
 
         if (!currentChatters || currentChatters.length === 0) {
@@ -42,13 +44,13 @@ export const getCorrentChatters = async (req, res) => {
 
         const otherParticipantsIDs = currentChatters.reduce((ids, conversation) => {
             const otherParticipants = conversation.participants.filter(
-                id => id.toString() !== currentUserID.toString() // fix: !== string compare
+                id => id.toString() !== currentUserID.toString()
             );
             return [...ids, ...otherParticipants];
         }, []);
 
-        const users = await User.find({ 
-            _id: { $in: otherParticipantsIDs } 
+        const users = await User.find({
+            _id: { $in: otherParticipantsIDs }
         }).select("-password -email");
 
         res.status(200).json(users);
