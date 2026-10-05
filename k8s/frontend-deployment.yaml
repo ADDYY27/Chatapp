@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chattr-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chattr-frontend
+  template:
+    metadata:
+      labels:
+        app: chattr-frontend
+    spec:
+      containers:
+        - name: chattr-frontend
+          image: addyy27/chattr-frontend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80

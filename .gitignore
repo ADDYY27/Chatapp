@@ -14,3 +14,7 @@ frontend/dist
 
 # Logs
 *.log
+
+# Helm archives & backups
+*.tgz
+*backup*.yaml

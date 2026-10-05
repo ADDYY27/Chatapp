@@ -1,0 +1,50 @@
+backend:
+  replicaCount: 1
+
+  image:
+    repository: chattr-backend
+    tag: k8s
+    pullPolicy: Never
+
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+
+  config:
+    nodeEnv: production
+    port: "3000"
+
+  existingSecret: chattr-backend-secret
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  hpa:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 3
+    cpuUtilization: 70
+
+frontend:
+  replicaCount: 1
+
+  image:
+    repository: addyy27/chattr-frontend
+    tag: latest
+    pullPolicy: Never
+
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+    nodePort: 30081
+
+ingress:
+  enabled: true
+  className: nginx

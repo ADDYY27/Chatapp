@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: chattr-backend-config
+
+data:
+  NODE_ENV: {{ .Values.backend.config.nodeEnv | quote }}
+  PORT: {{ .Values.backend.config.port | quote }}
