@@ -18,9 +18,11 @@ export const SocketProvider = ({ children }) => {
     addGroupMessage,
   } = useChatStore();
 
+  const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
+
   useEffect(() => {
     if (authUser) {
-      const newSocket = io("/", {
+      const newSocket = io(SERVER_URL || "/", {
         query: { userId: authUser._id },
       });
 
