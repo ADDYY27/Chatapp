@@ -56,14 +56,16 @@ const ProfilePicSection = ({ authUser, setAuthUser }) => {
     <div className="p-4">
       <div className="flex flex-col items-center text-center py-5">
         <div className="relative group cursor-pointer" onClick={() => !uploading && fileRef.current?.click()}>
-          <div className="w-20 h-20 rounded-full overflow-hidden ring-2 ring-primary/30">
+          <div className="w-20 h-20 rounded-full overflow-hidden ring-2 ring-primary/30 bg-primary flex items-center justify-center text-primary-content font-bold text-2xl">
             {authUser?.profilepic ? (
-              <img src={authUser.profilepic} alt="profile" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-primary flex items-center justify-center text-primary-content font-bold text-2xl">
-                {authUser?.fullname?.charAt(0).toUpperCase()}
-              </div>
-            )}
+              <img
+                src={authUser.profilepic}
+                alt="profile"
+                className="w-full h-full object-cover"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            ) : null}
+            {!authUser?.profilepic && authUser?.fullname?.charAt(0).toUpperCase()}
           </div>
           <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             {uploading ? (
@@ -237,10 +239,14 @@ const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
                 <div key={memberId} className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content font-bold flex-shrink-0">
                     {member.profilepic ? (
-                      <img src={member.profilepic} alt={member.fullname} className="w-full h-full object-cover" />
-                    ) : (
-                      member.fullname?.charAt(0).toUpperCase() || "?"
-                    )}
+                      <img
+                        src={member.profilepic}
+                        alt={member.fullname}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    ) : null}
+                    {!member.profilepic && (member.fullname?.charAt(0).toUpperCase() || "?")}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">
@@ -782,20 +788,16 @@ const Sidebar = () => {
       {/* ================= CURRENT USER ================= */}
       <div className="px-4 py-3 border-t border-base-300 flex items-center gap-3">
 
-        <div className="w-9 h-9 rounded-full overflow-hidden ring-1 ring-primary/40 flex-shrink-0">
-
+        <div className="w-9 h-9 rounded-full overflow-hidden ring-1 ring-primary/40 flex-shrink-0 bg-primary flex items-center justify-center text-primary-content font-bold">
           {authUser?.profilepic ? (
             <img
               src={authUser.profilepic}
               alt="me"
               className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
             />
-          ) : (
-            <div className="w-full h-full bg-primary flex items-center justify-center text-primary-content font-bold">
-              {authUser?.fullname?.charAt(0).toUpperCase()}
-            </div>
-          )}
-
+          ) : null}
+          {!authUser?.profilepic && authUser?.fullname?.charAt(0).toUpperCase()}
         </div>
 
         <div className="flex-1 min-w-0">

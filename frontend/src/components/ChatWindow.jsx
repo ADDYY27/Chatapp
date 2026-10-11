@@ -263,10 +263,14 @@ const ChatWindow = () => {
 
               <div className="w-10 h-10 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content font-bold">
                 {selectedUser?.profilepic ? (
-                  <img src={selectedUser.profilepic} alt={selectedUser.fullname} className="w-full h-full object-cover" />
-                ) : (
-                  selectedUser?.fullname?.charAt(0).toUpperCase() || "?"
-                )}
+                  <img
+                    src={selectedUser.profilepic}
+                    alt={selectedUser.fullname}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                ) : null}
+                {!selectedUser?.profilepic && (selectedUser?.fullname?.charAt(0).toUpperCase() || "?")}
               </div>
 
               {onlineUsers?.includes(selectedUser?._id) && (

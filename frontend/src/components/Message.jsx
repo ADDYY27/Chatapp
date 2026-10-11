@@ -27,8 +27,14 @@ const Message = ({ message }) => {
       {!isMine && (
         <div className="w-7 h-7 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content font-bold text-xs flex-shrink-0 self-end">
           {senderPic ? (
-            <img src={senderPic} alt={senderName} className="w-full h-full object-cover" />
-          ) : senderInitial}
+            <img
+              src={senderPic}
+              alt={senderName}
+              className="w-full h-full object-cover"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+            />
+          ) : null}
+          {!senderPic && senderInitial}
         </div>
       )}
 
