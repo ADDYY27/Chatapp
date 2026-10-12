@@ -28,10 +28,25 @@ const messageSchema = mongoose.Schema({
         default: false
     },
 
+    readAt: {
+        type: Date,
+        default: null
+    },
+
+    isDelivered: {
+        type: Boolean,
+        default: false
+    },
+
+    deliveredAt: {
+        type: Date,
+        default: null
+    },
+
     conversationId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Conversation',
-        default:[]
+        default: null
     },
 
 },{timestamps:true})

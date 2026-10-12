@@ -18,12 +18,19 @@ export const sendMessage = async (req, res) => {
                 participants: [senderId, reciverId],
             });
         }
+        const receiverSocketId = getReciverSocketId(reciverId);
+        const isDelivered = !!receiverSocketId;
+        const now = new Date();
 
         const newMessages = new Message({
             senderId,
             reciverId,
             message: messages,
-            conversationId: chats._id
+            conversationId: chats._id,
+            isDelivered,
+            deliveredAt: isDelivered ? now : null,
+            isRead: false,
+            readAt: null
         });
 
         if (newMessages) {
@@ -32,7 +39,6 @@ export const sendMessage = async (req, res) => {
 
         await Promise.all([chats.save(), newMessages.save()]);
 
-        const receiverSocketId = getReciverSocketId(reciverId);
         if (receiverSocketId) {
             io.to(receiverSocketId).emit("newMessage", newMessages);
         }
@@ -70,6 +76,12 @@ export const getMessages = async (req, res) => {
             query.createdAt = { $gt: clearedAt };
         }
 
+        // Mark incoming messages as delivered when fetched
+        await Message.updateMany(
+            { senderId: reciverId, reciverId: senderId, isDelivered: false },
+            { $set: { isDelivered: true, deliveredAt: new Date() } }
+        );
+
         const messages = await Message.find(query).sort({ createdAt: 1 });
 
         res.status(200).json(messages);
@@ -84,19 +96,20 @@ export const markMessagesAsRead = async (req, res) => {
     try {
         const { id: senderId } = req.params;
         const receiverId = req.user._id;
+        const now = new Date();
 
         await Message.updateMany(
             { senderId: senderId, reciverId: receiverId, isRead: false },
-            { $set: { isRead: true } }
+            { $set: { isRead: true, isDelivered: true, readAt: now } }
         );
 
         const senderSocketId = getReciverSocketId(senderId);
 
         if (senderSocketId) {
-            io.to(senderSocketId).emit("messagesRead", { userId: receiverId });
+            io.to(senderSocketId).emit("messagesRead", { userId: receiverId, readAt: now });
         }
 
-        res.status(200).json({ success: true, message: "Messages marked as read" });
+        res.status(200).json({ success: true, message: "Messages marked as read", readAt: now });
 
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

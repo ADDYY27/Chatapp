@@ -48,6 +48,29 @@ io.on('connection', (socket) => {
         socket.leave(`group:${groupId}`);
     });
 
+    // ================= TYPING INDICATORS =================
+    socket.on("typing", ({ receiverId, conversationId }) => {
+        if (!userId || !receiverId) return;
+        const receiverSocketId = getReciverSocketId(receiverId);
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("userTyping", {
+                senderId: userId,
+                conversationId
+            });
+        }
+    });
+
+    socket.on("stopTyping", ({ receiverId, conversationId }) => {
+        if (!userId || !receiverId) return;
+        const receiverSocketId = getReciverSocketId(receiverId);
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("userStoppedTyping", {
+                senderId: userId,
+                conversationId
+            });
+        }
+    });
+
 
     // ================= DISCONNECT =================
 

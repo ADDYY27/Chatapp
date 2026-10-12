@@ -1,5 +1,6 @@
 import Conversation from "../Models/conversationModels.js";
 import User from "../Models/userModels.js";
+import Message from "../Models/messageSchema.js";
 
 export const getUserBySearch=async(req,res)=>{
 try {
@@ -51,9 +52,46 @@ export const getCorrentChatters = async (req, res) => {
 
         const users = await User.find({
             _id: { $in: otherParticipantsIDs }
-        }).select("-password -email");
+        }).select("-password -email").lean();
 
-        res.status(200).json(users);
+        // Enrich each chatter with real unread count and last message
+        const chattersWithMeta = await Promise.all(
+            users.map(async (u) => {
+                const conv = currentChatters.find((c) =>
+                    c.participants.some((p) => p.toString() === u._id.toString())
+                );
+                const clearEntry = conv?.clearedBy?.find(
+                    (c) => c.userId?.toString() === currentUserID.toString()
+                );
+                const clearedAt = clearEntry?.clearedAt || null;
+
+                const query = {
+                    senderId: u._id,
+                    reciverId: currentUserID,
+                    isRead: false
+                };
+                if (clearedAt) query.createdAt = { $gt: clearedAt };
+                const unreadCount = await Message.countDocuments(query);
+
+                const lastMsgQuery = {
+                    conversationId: conv?._id,
+                    isGroupMessage: false
+                };
+                if (clearedAt) lastMsgQuery.createdAt = { $gt: clearedAt };
+                const lastMsg = await Message.findOne(lastMsgQuery)
+                    .sort({ createdAt: -1 })
+                    .select("message createdAt senderId isRead");
+
+                return {
+                    ...u,
+                    unreadCount,
+                    lastMessage: lastMsg ? lastMsg.message : "",
+                    lastMessageTime: lastMsg ? lastMsg.createdAt : conv?.updatedAt
+                };
+            })
+        );
+
+        res.status(200).json(chattersWithMeta);
 
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
