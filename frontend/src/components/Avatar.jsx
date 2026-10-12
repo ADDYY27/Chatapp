@@ -32,12 +32,16 @@ const Avatar = ({
   online,
   onlineSize = 10,
   borderColor = "var(--ng-panel)",
+  ring = false,
+  ringColor,
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
   const showImage = src && !imgFailed;
   const color = pickColor(name);
   const initials = getInitials(name);
   const label = name || "User avatar";
+
+  const effectiveRingColor = ringColor || (ring ? "var(--ng-terracotta)" : null);
 
   const baseStyle = {
     width: size,
@@ -56,6 +60,9 @@ const Avatar = ({
     backgroundColor: showImage ? "transparent" : color.bg,
     color: color.text,
     userSelect: "none",
+    boxShadow: effectiveRingColor
+      ? `0 0 0 2px var(--ng-panel), 0 0 0 4px ${effectiveRingColor}`
+      : "none",
     ...style,
   };
 
