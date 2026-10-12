@@ -36,7 +36,8 @@ const Avatar = ({
   ringColor,
 }) => {
   const [imgFailed, setImgFailed] = useState(false);
-  const showImage = src && !imgFailed;
+  const isFailingService = typeof src === "string" && src.includes("avatar.iran.liara.run");
+  const showImage = Boolean(src) && !isFailingService && !imgFailed;
   const color = pickColor(name);
   const initials = getInitials(name);
   const label = name || "User avatar";

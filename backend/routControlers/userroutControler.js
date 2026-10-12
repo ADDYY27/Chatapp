@@ -37,9 +37,7 @@ export const userRegister = async (req, res) => {
             }
             finalPic = profilepic;
         } else {
-            finalPic = gender === "male"
-                ? `https://avatar.iran.liara.run/public/boy?username=${username}`
-                : `https://avatar.iran.liara.run/public/girl?username=${username}`;
+            finalPic = "";
         }
 
         const hashPassword = bcryptjs.hashSync(password, 10);
