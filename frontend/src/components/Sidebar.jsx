@@ -306,6 +306,8 @@ const Sidebar = () => {
     unreadGroupCounts,
     clearGroupUnread,
     onlineUsers,
+    typingMap,
+    addChatter,
   } = useChatStore();
 
   const { users, loading } = useGetUsers(search);
@@ -313,12 +315,65 @@ const Sidebar = () => {
   const { groups, loading: groupsLoading, getGroups } = useGetGroups();
   const { logout, loading: loggingOut } = useLogout();
 
+  const [pinnedIds, setPinnedIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`chatapp_pinned_${authUser?._id}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const togglePinUser = (userId, e) => {
+    if (e) e.stopPropagation();
+    setOpenChatMenu(null);
+    setPinnedIds((prev) => {
+      const next = prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId];
+      try {
+        localStorage.setItem(`chatapp_pinned_${authUser?._id}`, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const formatChatTime = (time) => {
+    if (!time) return "";
+    try {
+      const d = new Date(time);
+      if (isNaN(d.getTime())) return "";
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      if (isToday) {
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) {
+        return "Yesterday";
+      }
+      return d.toLocaleDateString([], { month: "short", day: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+
   const handleSelectUser = (user) => {
+    addChatter(user);
     setSelectedUser(user);
     setSearch("");
   };
 
-  const filteredChatters = fetchedChatters.filter((user) => {
+  // Ensure selectedUser is included in chatters list if active
+  const allChatters = [...fetchedChatters];
+  if (selectedUser && !allChatters.some((u) => u._id === selectedUser._id)) {
+    allChatters.unshift(selectedUser);
+  }
+
+  const filteredChatters = allChatters.filter((user) => {
     const query = chatSearch.toLowerCase().trim();
     if (!query) return true;
     return (
@@ -326,6 +381,98 @@ const Sidebar = () => {
       user.username?.toLowerCase().includes(query)
     );
   });
+
+  const pinnedChatters = filteredChatters.filter((user) => pinnedIds.includes(user._id));
+  const recentChatters = filteredChatters.filter((user) => !pinnedIds.includes(user._id));
+
+  const renderChatRow = (user, isPinned) => {
+    const isSelected = selectedUser?._id === user._id;
+    const isTyping = Boolean(typingMap?.[user._id]);
+    const unreadCount = unreadCounts[user._id] !== undefined
+      ? unreadCounts[user._id]
+      : (user.unreadCount || 0);
+    const subtitle = user.lastMessage || "";
+    const timestamp = formatChatTime(user.lastMessageTime);
+
+    return (
+      <div key={user._id} style={{ position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <div style={{ flex: 1 }}>
+            <UserItem
+              user={user}
+              isSelected={isSelected}
+              isOnline={onlineUsers.includes(user._id)}
+              isSearchResult={false}
+              subtitle={subtitle}
+              timestamp={timestamp}
+              unreadCount={unreadCount}
+              hasRing={isPinned || isSelected}
+              isTyping={isTyping}
+              onClick={() => handleSelectUser(user)}
+            />
+          </div>
+          <button
+            aria-label={`More options for ${user.fullname}`}
+            style={{
+              background: "none", border: "none", cursor: "pointer",
+              color: "var(--ng-muted)", fontSize: 18,
+              minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center",
+              borderRadius: "var(--r-btn)", flexShrink: 0,
+              transition: "color 0.15s, background 0.15s",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpenChatMenu(openChatMenu === user._id ? null : user._id);
+              setOpenGroupMenu(null);
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--ng-text)"; e.currentTarget.style.background = "var(--ng-hover)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--ng-muted)"; e.currentTarget.style.background = "none"; }}
+          >
+            ⋮
+          </button>
+        </div>
+
+        {openChatMenu === user._id && (
+          <div
+            style={{
+              position: "absolute", right: 8, top: "calc(100% - 4px)", zIndex: 50,
+              background: "var(--ng-panel)", borderRadius: "var(--r-card)",
+              border: "1px solid var(--ng-border)", padding: "4px 0", width: 148,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              style={{
+                width: "100%", textAlign: "left", padding: "10px 16px",
+                background: "none", border: "none", cursor: "pointer",
+                fontFamily: "var(--font-body)", fontSize: 13,
+                color: "var(--ng-text)", transition: "background 0.1s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ng-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+              onClick={(e) => togglePinUser(user._id, e)}
+            >
+              {isPinned ? "Unpin Chat" : "Pin Chat"}
+            </button>
+            <button
+              style={{
+                width: "100%", textAlign: "left", padding: "10px 16px",
+                background: "none", border: "none", cursor: "pointer",
+                fontFamily: "var(--font-body)", fontSize: 13,
+                color: "var(--ng-terracotta)", transition: "background 0.1s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ng-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+              onClick={(e) => handleClearChat(user._id, e)}
+            >
+              Clear Chat
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const handleClearChat = async (userId, e) => {
     e.stopPropagation();
@@ -529,8 +676,7 @@ const Sidebar = () => {
               </div>
             ) : (
               <>
-                {/* Pinned section if active chat is selected */}
-                {selectedUser && (
+                {pinnedChatters.length > 0 && (
                   <div style={{ marginBottom: 8 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px 4px" }}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} style={{ color: "var(--ng-accent)", flexShrink: 0 }}>
@@ -538,121 +684,18 @@ const Sidebar = () => {
                       </svg>
                       <span style={{ ...S.label, padding: 0 }}>Pinned</span>
                     </div>
-                    <div style={{ position: "relative" }}>
-                      <div style={{ display: "flex", alignItems: "center" }}>
-                        <div style={{ flex: 1 }}>
-                          <UserItem
-                            user={selectedUser}
-                            isSelected={true}
-                            isOnline={onlineUsers.includes(selectedUser._id)}
-                            isSearchResult={false}
-                            subtitle="typing.."
-                            timestamp="4:12 PM"
-                            hasRing={true}
-                            onClick={() => handleSelectUser(selectedUser)}
-                          />
-                        </div>
-                        <button
-                          aria-label={`More options for ${selectedUser.fullname}`}
-                          style={{
-                            background: "none", border: "none", cursor: "pointer",
-                            color: "var(--ng-muted)", fontSize: 18,
-                            minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center",
-                            borderRadius: "var(--r-btn)", flexShrink: 0,
-                            transition: "color 0.15s, background 0.15s",
-                          }}
-                          onClick={(e) => { e.stopPropagation(); setOpenChatMenu(openChatMenu === selectedUser._id ? null : selectedUser._id); setOpenGroupMenu(null); }}
-                          onMouseEnter={e => { e.currentTarget.style.color = "var(--ng-text)"; e.currentTarget.style.background = "var(--ng-hover)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.color = "var(--ng-muted)"; e.currentTarget.style.background = "none"; }}
-                        >
-                          ⋮
-                        </button>
-                      </div>
-                      {openChatMenu === selectedUser._id && (
-                        <div
-                          style={{
-                            position: "absolute", right: 8, top: "calc(100% - 4px)", zIndex: 50,
-                            background: "var(--ng-panel)", borderRadius: "var(--r-card)",
-                            border: "1px solid var(--ng-border)", padding: "4px 0", width: 148,
-                            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            style={{ width: "100%", textAlign: "left", padding: "10px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ng-terracotta)", transition: "background 0.1s" }}
-                            onMouseEnter={e => e.currentTarget.style.background = "var(--ng-hover)"}
-                            onMouseLeave={e => e.currentTarget.style.background = "none"}
-                            onClick={(e) => handleClearChat(selectedUser._id, e)}
-                          >
-                            Clear Chat
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    {pinnedChatters.map((user) => renderChatRow(user, true))}
                   </div>
                 )}
 
-                {filteredChatters.filter((user) => !selectedUser || user._id !== selectedUser._id).length > 0 ? (
-                  <>
+                {recentChatters.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
                     <span style={S.label}>Recent</span>
-                    {filteredChatters
-                      .filter((user) => !selectedUser || user._id !== selectedUser._id)
-                      .map((user, index) => (
-                      <div key={user._id} style={{ position: "relative" }}>
-                        <div style={{ display: "flex", alignItems: "center" }}>
-                          <div style={{ flex: 1 }}>
-                            <UserItem
-                              user={user}
-                              isSelected={false}
-                              isOnline={onlineUsers.includes(user._id)}
-                              isSearchResult={false}
-                              subtitle={index === 0 ? "see you at the standup" : undefined}
-                              timestamp={index === 0 ? "2:40 PM" : undefined}
-                              unreadCount={unreadCounts[user._id] || (index === 0 ? 2 : 0)}
-                              onClick={() => handleSelectUser(user)}
-                            />
-                          </div>
-                          <button
-                            aria-label={`More options for ${user.fullname}`}
-                            style={{
-                              background: "none", border: "none", cursor: "pointer",
-                              color: "var(--ng-muted)", fontSize: 18,
-                              minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center",
-                              borderRadius: "var(--r-btn)", flexShrink: 0,
-                              transition: "color 0.15s, background 0.15s",
-                            }}
-                            onClick={(e) => { e.stopPropagation(); setOpenChatMenu(openChatMenu === user._id ? null : user._id); setOpenGroupMenu(null); }}
-                            onMouseEnter={e => { e.currentTarget.style.color = "var(--ng-text)"; e.currentTarget.style.background = "var(--ng-hover)"; }}
-                            onMouseLeave={e => { e.currentTarget.style.color = "var(--ng-muted)"; e.currentTarget.style.background = "none"; }}
-                          >
-                            ⋮
-                          </button>
-                        </div>
+                    {recentChatters.map((user) => renderChatRow(user, false))}
+                  </div>
+                )}
 
-                        {openChatMenu === user._id && (
-                          <div
-                            style={{
-                              position: "absolute", right: 8, top: "calc(100% - 4px)", zIndex: 50,
-                              background: "var(--ng-panel)", borderRadius: "var(--r-card)",
-                              border: "1px solid var(--ng-border)", padding: "4px 0", width: 148,
-                              boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              style={{ width: "100%", textAlign: "left", padding: "10px 16px", background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ng-terracotta)", transition: "background 0.1s" }}
-                              onMouseEnter={e => e.currentTarget.style.background = "var(--ng-hover)"}
-                              onMouseLeave={e => e.currentTarget.style.background = "none"}
-                              onClick={(e) => handleClearChat(user._id, e)}
-                            >
-                              Clear Chat
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </>
-                ) : !selectedUser && (
+                {pinnedChatters.length === 0 && recentChatters.length === 0 && (
                   <div style={{ textAlign: "center", padding: "40px 20px" }}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>💬</div>
                     <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ng-muted)" }}>
