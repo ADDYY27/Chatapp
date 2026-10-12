@@ -22,13 +22,13 @@ const useSendGroupMessage = (groupId) => {
 
       if (response.data.success) {
         addGroupMessage(response.data.message);
+        return true;
       }
+      return false;
 
     } catch (error) {
-      console.log(
-        "Error sending group message:",
-        error
-      );
+      console.log("Error sending group message:", error);
+      return false;
     } finally {
       setSending(false);
     }

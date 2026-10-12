@@ -21,9 +21,18 @@ const Message = ({
   const senderName = message.senderId?.fullname;
   const senderPic = message.senderId?.profilepic;
 
-  const timeStr = message.createdAt
-    ? new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "4:09 PM";
+  const formatReceiptTime = (dateVal) => {
+    if (!dateVal) return "";
+    try {
+      return new Date(dateVal).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  };
+
+  const createdTimeStr = formatReceiptTime(message.createdAt) || formatReceiptTime(new Date());
+  const readTimeStr = formatReceiptTime(message.readAt);
+  const deliveredTimeStr = formatReceiptTime(message.deliveredAt);
 
   const isAudio = message.isAudio || message.message?.startsWith("audio::");
   const isPinned = message.isPinned;
@@ -321,29 +330,80 @@ const Message = ({
             >
               {isMine ? (
                 <>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="13"
-                    height="13"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="var(--ng-online)"
-                    strokeWidth={2.5}
-                    style={{ flexShrink: 0 }}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  <span style={{ color: "var(--ng-muted)", fontSize: 11 }}>
-                    Seen {timeStr}
-                  </span>
+                  {message.isRead ? (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="15"
+                        height="13"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="var(--ng-online)"
+                        strokeWidth={2.2}
+                        style={{ flexShrink: 0 }}
+                        aria-label="Read"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M2 13l4 4L16 7m5 0l-8 8-2-2"
+                        />
+                      </svg>
+                      <span style={{ color: "var(--ng-muted)", fontSize: 11 }}>
+                        Seen {readTimeStr || createdTimeStr}
+                      </span>
+                    </>
+                  ) : message.isDelivered ? (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="15"
+                        height="13"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="var(--ng-muted)"
+                        strokeWidth={2.2}
+                        style={{ flexShrink: 0 }}
+                        aria-label="Delivered"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M2 13l4 4L16 7m5 0l-8 8-2-2"
+                        />
+                      </svg>
+                      <span style={{ color: "var(--ng-muted)", fontSize: 11 }}>
+                        Delivered {deliveredTimeStr || createdTimeStr}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="13"
+                        height="13"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="var(--ng-muted)"
+                        strokeWidth={2.2}
+                        style={{ flexShrink: 0 }}
+                        aria-label="Sent"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      <span style={{ color: "var(--ng-muted)", fontSize: 11 }}>
+                        Sent {createdTimeStr}
+                      </span>
+                    </>
+                  )}
                 </>
               ) : (
                 <span style={{ color: "var(--ng-muted)", opacity: 0.6 }}>
-                  {timeStr}
+                  {createdTimeStr}
                 </span>
               )}
             </div>

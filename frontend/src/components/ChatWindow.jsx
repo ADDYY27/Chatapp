@@ -249,7 +249,8 @@ const ChatWindow = () => {
   const [activeColorFg, setActiveColorFg] = useState("#16110A");
   const [localVoiceNotes, setLocalVoiceNotes] = useState([]);
 
-  const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection } = useChatStore();
+  const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection, typingMap } = useChatStore();
+  const isRecipientTyping = Boolean(selectedUser?._id && typingMap?.[selectedUser._id]);
 
   const { loading: userMessagesLoading } = useGetMessages(selectedUser?._id);
   const { sendMessage, sending: userSending } = useSendMessage(selectedUser?._id);
@@ -275,7 +276,7 @@ const ChatWindow = () => {
       catch (error) { console.log("Error marking messages as read:", error); }
     };
     markAsRead();
-  }, [selectedUser?._id]);
+  }, [selectedUser?._id, messages.length]);
 
   useEffect(() => {
     if (!socket) return;
@@ -314,42 +315,8 @@ const ChatWindow = () => {
     toast.success(`Theme updated: ${hex}`);
   };
 
-  /* Default starter demonstration messages matching early0.png (NG1 Chat Open) when no messages exist */
-  const defaultConversation = [
-    {
-      _id: "demo_1",
-      senderId: selectedUser?._id || "xero_id",
-      message: "did you push the new sidebar yet?",
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      _id: "demo_2",
-      senderId: authUser?._id,
-      message: "yep, check the branch. the rail is finally clean",
-      createdAt: new Date(Date.now() - 1800000).toISOString(),
-      isRead: true,
-    },
-    {
-      _id: "demo_3",
-      senderId: selectedUser?._id || "xero_id",
-      isAudio: true,
-      duration: "0:14",
-      reaction: "🧡 1",
-      createdAt: new Date(Date.now() - 900000).toISOString(),
-    },
-    {
-      _id: "demo_4",
-      senderId: selectedUser?._id || "xero_id",
-      isPinned: true,
-      message: "Demo day is Friday, 6 PM",
-      createdAt: new Date(Date.now() - 600000).toISOString(),
-    },
-  ];
-
-  /* Combine real messages with any local voice notes or fallback */
-  const displayMessages = messages && messages.length > 0
-    ? [...messages, ...localVoiceNotes]
-    : [...defaultConversation, ...localVoiceNotes];
+  /* Combine real messages with any local voice notes */
+  const displayMessages = [...(messages || []), ...localVoiceNotes];
 
   const filteredMessages = searchQuery.trim()
     ? displayMessages.filter((m) =>
@@ -754,6 +721,19 @@ const ChatWindow = () => {
             </div>
           )}
 
+          {/* Empty state when no messages */}
+          {filteredMessages.length === 0 && !userMessagesLoading && !groupMessagesLoading && (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", textAlign: "center", opacity: 0.7 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ng-text)", margin: 0, fontWeight: 500 }}>
+                {searchQuery.trim() ? "No messages found" : "No messages yet"}
+              </p>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ng-muted)", margin: "4px 0 0" }}>
+                {searchQuery.trim() ? "Try searching for something else" : `Send a message to start the conversation with ${displayName}`}
+              </p>
+            </div>
+          )}
+
           {/* Render Messages */}
           {filteredMessages.map((msg) => (
             <Message
@@ -764,52 +744,54 @@ const ChatWindow = () => {
             />
           ))}
 
-          {/* Animated typing indicator bubble */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "10px 14px",
-              borderRadius: "18px 18px 18px 4px",
-              background: "var(--ng-hover)",
-              border: "1px solid rgba(255,255,255,0.04)",
-              width: "fit-content",
-              marginTop: 4,
-            }}
-            aria-label="User is typing"
-          >
-            <span
+          {/* Animated typing indicator bubble - only when other user is typing */}
+          {isRecipientTyping && (
+            <div
               style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "var(--ng-muted)",
-                animation: "ngBounce 1.2s infinite ease-in-out",
-                animationDelay: "0ms",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "10px 14px",
+                borderRadius: "18px 18px 18px 4px",
+                background: "var(--ng-hover)",
+                border: "1px solid rgba(255,255,255,0.04)",
+                width: "fit-content",
+                marginTop: 4,
               }}
-            />
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "var(--ng-muted)",
-                animation: "ngBounce 1.2s infinite ease-in-out",
-                animationDelay: "200ms",
-              }}
-            />
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: "var(--ng-muted)",
-                animation: "ngBounce 1.2s infinite ease-in-out",
-                animationDelay: "400ms",
-              }}
-            />
-          </div>
+              aria-label="User is typing"
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "var(--ng-muted)",
+                  animation: "ngBounce 1.2s infinite ease-in-out",
+                  animationDelay: "0ms",
+                }}
+              />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "var(--ng-muted)",
+                  animation: "ngBounce 1.2s infinite ease-in-out",
+                  animationDelay: "200ms",
+                }}
+              />
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: "var(--ng-muted)",
+                  animation: "ngBounce 1.2s infinite ease-in-out",
+                  animationDelay: "400ms",
+                }}
+              />
+            </div>
+          )}
 
           <div ref={bottomRef} />
         </div>

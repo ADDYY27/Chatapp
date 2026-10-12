@@ -10,20 +10,32 @@ const useGetMessages = (selectedUserId) => {
   useEffect(() => {
     if (!selectedUserId) return;
 
+    let isCurrent = true;
+
     const fetchMessages = async () => {
       setLoading(true);
       try {
         const { data } = await axiosInstance.get(`/message/${selectedUserId}`);
-        setMessages(data);
+        if (isCurrent) {
+          setMessages(data);
+        }
       } catch (err) {
-        toast.error(err?.response?.data?.message || "Failed to load messages.");
+        if (isCurrent) {
+          toast.error(err?.response?.data?.message || "Failed to load messages.");
+        }
       } finally {
-        setLoading(false);
+        if (isCurrent) {
+          setLoading(false);
+        }
       }
     };
 
     fetchMessages();
-  }, [selectedUserId]);
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [selectedUserId, setMessages]);
 
   return { loading };
 };
