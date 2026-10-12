@@ -16,6 +16,7 @@ export const SocketProvider = ({ children }) => {
     addMessage,
     markMessagesAsRead,
     addGroupMessage,
+    setUserTyping,
   } = useChatStore();
 
   const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
@@ -26,6 +27,8 @@ export const SocketProvider = ({ children }) => {
         query: { userId: authUser._id },
       });
 
+      const typingTimeouts = {};
+
       newSocket.on("getOnlineUsers", (users) => {
         setOnlineUsers(users);
       });
@@ -35,21 +38,48 @@ export const SocketProvider = ({ children }) => {
         addMessage(newMessage, authUser._id);
       });
 
-      // Read receipts
-      newSocket.on("messagesRead", ({ userId }) => {
-        markMessagesAsRead(userId);
+      // Read receipts with real timestamp
+      newSocket.on("messagesRead", ({ userId, readAt }) => {
+        markMessagesAsRead(userId, readAt);
+      });
+
+      // Typing indicators with auto-cleanup timeout
+      newSocket.on("userTyping", ({ senderId }) => {
+        if (!senderId || senderId === authUser._id) return;
+        setUserTyping(senderId, true);
+        if (typingTimeouts[senderId]) clearTimeout(typingTimeouts[senderId]);
+        typingTimeouts[senderId] = setTimeout(() => {
+          setUserTyping(senderId, false);
+          delete typingTimeouts[senderId];
+        }, 3500);
+      });
+
+      newSocket.on("userStoppedTyping", ({ senderId }) => {
+        if (!senderId || senderId === authUser._id) return;
+        if (typingTimeouts[senderId]) {
+          clearTimeout(typingTimeouts[senderId]);
+          delete typingTimeouts[senderId];
+        }
+        setUserTyping(senderId, false);
       });
 
       // Group messages
       newSocket.on("groupMessage", (newMessage) => {
-        console.log("GROUP MESSAGE RECEIVED:", newMessage);
-
         addGroupMessage(newMessage, authUser._id);
       });
 
       setSocket(newSocket);
 
-      return () => newSocket.close();
+      return () => {
+        Object.values(typingTimeouts).forEach(clearTimeout);
+        newSocket.off("getOnlineUsers");
+        newSocket.off("newMessage");
+        newSocket.off("messagesRead");
+        newSocket.off("userTyping");
+        newSocket.off("userStoppedTyping");
+        newSocket.off("groupMessage");
+        newSocket.close();
+      };
     } else {
       if (socket) {
         socket.close();

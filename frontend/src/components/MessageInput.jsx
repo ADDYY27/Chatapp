@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
+import { useSocket } from "../context/SocketContext";
+import useChatStore from "../store/useChatStore";
 
 const EMOJIS = ["😊", "🧡", "🔥", "👍", "🎉", "😂", "✨", "👋", "👀", "🚀", "💯", "😴", "🙌", "💡"];
 
@@ -21,6 +23,48 @@ const MessageInput = ({
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const { socket } = useSocket();
+  const { selectedUser } = useChatStore();
+  const typingTimerRef = useRef(null);
+  const isTypingRef = useRef(false);
+
+  const emitTyping = (isTyping) => {
+    if (!socket || !selectedUser?._id) return;
+    if (isTyping && !isTypingRef.current) {
+      isTypingRef.current = true;
+      socket.emit("typing", { receiverId: selectedUser._id });
+    } else if (!isTyping && isTypingRef.current) {
+      isTypingRef.current = false;
+      socket.emit("stopTyping", { receiverId: selectedUser._id });
+    }
+  };
+
+  const handleTextChange = (e) => {
+    const val = e.target.value;
+    setText(val);
+
+    if (val.trim().length > 0) {
+      emitTyping(true);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = setTimeout(() => {
+        emitTyping(false);
+      }, 2000);
+    } else {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      emitTyping(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (isTypingRef.current && socket && selectedUser?._id) {
+        socket.emit("stopTyping", { receiverId: selectedUser._id });
+      }
+      isTypingRef.current = false;
+    };
+  }, [selectedUser?._id, socket]);
+
   useEffect(() => {
     let timer;
     if (isRecording) {
@@ -33,15 +77,26 @@ const MessageInput = ({
     return () => clearInterval(timer);
   }, [isRecording]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e?.preventDefault?.();
-    if (!text.trim()) return;
-    onSend(text);
-    setText("");
-    setShowEmojis(false);
-    setShowAttachMenu(false);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+    const trimmed = text.trim();
+    if (!trimmed || sending) return;
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    emitTyping(false);
+
+    try {
+      const result = await onSend(trimmed);
+      if (result !== false) {
+        setText("");
+        setShowEmojis(false);
+        setShowAttachMenu(false);
+        if (textareaRef.current) {
+          textareaRef.current.style.height = "auto";
+        }
+      }
+    } catch {
+      // Keep drafted text on error
     }
   };
 
@@ -466,7 +521,7 @@ const MessageInput = ({
               ref={textareaRef}
               type="text"
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={handleTextChange}
               onKeyDown={handleKeyDown}
               placeholder={recipientName ? `Message ${recipientName}` : "Type a message..."}
               aria-label="Message input"

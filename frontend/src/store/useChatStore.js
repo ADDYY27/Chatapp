@@ -13,11 +13,43 @@ setSelectedGroup: (group) =>
     messages: [],
     onlineUsers: [],
     unreadCounts: {},
-unreadGroupCounts: {},
+    unreadGroupCounts: {},
     chatters: [],
+    typingMap: {},
 
-    setChatters: (chatters) => set({ chatters }),
-setActiveSection: (section) => set({ activeSection: section }),
+    setUserTyping: (userId, isTyping) =>
+        set((state) => ({
+            typingMap: {
+                ...state.typingMap,
+                [userId]: isTyping,
+            },
+        })),
+
+    setUnreadCounts: (counts) =>
+        set((state) => ({
+            unreadCounts: {
+                ...state.unreadCounts,
+                ...counts,
+            },
+        })),
+
+    setChatters: (chatters) => {
+        // Also initialize unread counts from chatters metadata if present
+        const initialUnread = {};
+        chatters.forEach((c) => {
+            if (c.unreadCount !== undefined) {
+                initialUnread[c._id] = c.unreadCount;
+            }
+        });
+        set((state) => ({
+            chatters,
+            unreadCounts: {
+                ...initialUnread,
+                ...state.unreadCounts,
+            },
+        }));
+    },
+    setActiveSection: (section) => set({ activeSection: section }),
     addChatter: (user) =>
         set((state) => {
             const exists = state.chatters.some(
@@ -37,6 +69,7 @@ setActiveSection: (section) => set({ activeSection: section }),
     set((state) => ({
         selectedUser: user,
         selectedGroup: null,
+        messages: [], // Clear messages immediately so old conversation never flashes
         unreadCounts: user ? {
             ...state.unreadCounts,
             [user._id]: 0,
@@ -48,6 +81,10 @@ setActiveSection: (section) => set({ activeSection: section }),
     addMessage: (message, currentUserId) => {
         const state = get();
 
+        // Prevent duplicate messages
+        const exists = state.messages.some((m) => m._id === message._id);
+        if (exists) return;
+
         const senderId =
             message.senderId?._id?.toString() ||
             message.senderId?.toString();
@@ -58,8 +95,21 @@ setActiveSection: (section) => set({ activeSection: section }),
         const isFromSelectedUser =
             state.selectedUser?._id?.toString() === senderId;
 
+        // Also update chatter lastMessage metadata
+        const updatedChatters = state.chatters.map((c) => {
+            if (c._id === senderId || (message.reciverId && c._id === (message.reciverId?._id || message.reciverId))) {
+                return {
+                    ...c,
+                    lastMessage: message.message,
+                    lastMessageTime: message.createdAt || new Date().toISOString(),
+                };
+            }
+            return c;
+        });
+
         if (isIncoming && !isFromSelectedUser) {
             set((s) => ({
+                chatters: updatedChatters,
                 unreadCounts: {
                     ...s.unreadCounts,
                     [senderId]: (s.unreadCounts[senderId] || 0) + 1,
@@ -67,6 +117,7 @@ setActiveSection: (section) => set({ activeSection: section }),
             }));
         } else {
             set((s) => ({
+                chatters: updatedChatters,
                 messages: [...s.messages, message],
             }));
         }
@@ -150,7 +201,7 @@ clearGroupUnread: (groupId) =>
   
     setOnlineUsers: (users) => set({ onlineUsers: users }),
 
-    markMessagesAsRead: (userId) => {
+    markMessagesAsRead: (userId, readAt) => {
         set((state) => ({
             messages: state.messages.map((message) => {
                 const receiverId =
@@ -161,6 +212,8 @@ clearGroupUnread: (groupId) =>
                     return {
                         ...message,
                         isRead: true,
+                        isDelivered: true,
+                        readAt: readAt || message.readAt || new Date().toISOString(),
                     };
                 }
 
