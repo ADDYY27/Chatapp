@@ -1,69 +1,57 @@
 import { useAuth } from "../context/AuthContext";
+import Avatar from "./Avatar";
 
 const Message = ({ message }) => {
   const { authUser } = useAuth();
 
-  const senderId =
-    message.senderId?._id?.toString() || message.senderId?.toString();
-
+  const senderId = message.senderId?._id?.toString() || message.senderId?.toString();
   const myId = authUser?._id?.toString();
   const isMine = senderId === myId;
 
   const isGroup = message.isGroupMessage;
   const senderName = message.senderId?.fullname;
   const senderPic = message.senderId?.profilepic;
-  const senderInitial = senderName?.charAt(0).toUpperCase() || "?";
 
   const timeStr = message.createdAt
-    ? new Date(message.createdAt).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
+    ? new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "";
 
   return (
-    <div className={`flex mb-2 gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
-      {/* Avatar for incoming messages */}
+    <div style={{ display: "flex", marginBottom: 4, gap: 8, justifyContent: isMine ? "flex-end" : "flex-start" }}>
       {!isMine && (
-        <div className="w-7 h-7 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content font-bold text-xs flex-shrink-0 self-end">
-          {senderPic ? (
-            <img
-              src={senderPic}
-              alt={senderName}
-              className="w-full h-full object-cover"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
-            />
-          ) : null}
-          {!senderPic && senderInitial}
-        </div>
+        <Avatar
+          src={senderPic}
+          name={senderName}
+          size={28}
+          style={{ alignSelf: "flex-end", flexShrink: 0 }}
+        />
       )}
 
-      <div className="flex flex-col gap-1 max-w-xs">
-        {/* Sender name in group chats */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, maxWidth: 320 }}>
         {isGroup && !isMine && senderName && (
-          <p className="text-xs text-base-content/50 px-1">{senderName}</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ng-muted)", margin: "0 0 1px", paddingLeft: 4 }}>
+            {senderName}
+          </p>
         )}
 
-        <div
-          className={`px-4 py-2 rounded-2xl text-sm break-words shadow-sm ${
-            isMine
-              ? "bg-primary text-primary-content rounded-br-none"
-              : "bg-base-300 text-base-content rounded-bl-none"
-          }`}
-        >
+        <div style={{
+          padding: "9px 14px",
+          borderRadius: isMine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+          fontFamily: "var(--font-body)",
+          fontSize: 14,
+          lineHeight: 1.5,
+          wordBreak: "break-word",
+          backgroundColor: isMine ? "var(--ng-accent)" : "var(--ng-hover)",
+          color: isMine ? "var(--ng-accent-fg)" : "var(--ng-text)",
+        }}>
           {message.message}
         </div>
 
         {(timeStr || isMine) && (
-          <div
-            className={`flex items-center gap-1 text-xs opacity-40 ${
-              isMine ? "justify-end" : "justify-start"
-            }`}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, opacity: 0.5, justifyContent: isMine ? "flex-end" : "flex-start", fontFamily: "var(--font-body)" }}>
             {timeStr && <span>{timeStr}</span>}
-
             {isMine && (
-              <span className={message.isRead ? "text-info opacity-100" : ""}>
+              <span style={{ color: message.isRead ? "var(--ng-online)" : "inherit", opacity: message.isRead ? 1 : 0.5 }}>
                 {message.isRead ? "✓✓" : "✓"}
               </span>
             )}

@@ -4,17 +4,18 @@ import MiniNavigation from "../components/MiniNavigation";
 
 const Home = () => {
   return (
-    <div className="flex h-screen overflow-hidden bg-base-100">
-      
-      {/* Left Mini Navigation */}
+    <div
+      style={{
+        display: "flex",
+        height: "100svh",
+        width: "100%",
+        overflow: "hidden",
+        background: "var(--ng-bg)",
+      }}
+    >
       <MiniNavigation />
-
-      {/* Middle Sidebar */}
       <Sidebar />
-
-      {/* Right Chat Window */}
       <ChatWindow />
-
     </div>
   );
 };

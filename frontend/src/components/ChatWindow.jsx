@@ -9,9 +9,12 @@ import useChatStore from "../store/useChatStore";
 import Message from "./Message";
 import MessageInput from "./MessageInput";
 import { useAuth } from "../context/AuthContext";
+import Avatar from "./Avatar";
 import toast from "react-hot-toast";
 
-// Group info modal (inline in chat header)
+/* ============================================================
+   Group Info Modal (inline in chat header)
+   ============================================================ */
 const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
   const ALLOWED_TYPES = ["image/jpeg","image/jpg","image/png","image/webp","image/gif"];
   const MAX_SIZE = 5 * 1024 * 1024;
@@ -28,7 +31,6 @@ const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
     if (!file) return;
     if (!ALLOWED_TYPES.includes(file.type)) { toast.error("Invalid image type"); return; }
     if (file.size > MAX_SIZE) { toast.error("Image too large (max 5MB)"); return; }
-
     const reader = new FileReader();
     reader.onloadend = async () => {
       try {
@@ -53,80 +55,88 @@ const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-base-100 rounded-2xl shadow-xl w-80 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-base-300">
-          <p className="font-bold text-base">Group Info</p>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)" }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: "var(--ng-panel)", borderRadius: "var(--r-card)", border: "1px solid var(--ng-border)", width: 320, maxHeight: "85vh", overflowY: "auto" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px 12px", borderBottom: "1px solid var(--ng-border)" }}>
+          <p style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 16, color: "var(--ng-text)", margin: 0 }}>Group Info</p>
+          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", fontSize: 18, padding: 4, borderRadius: 8 }}>✕</button>
         </div>
 
-        <div className="flex flex-col items-center py-5 px-5">
-          <div className={`relative ${isAdmin ? "group cursor-pointer" : ""}`} onClick={() => isAdmin && !uploading && fileRef.current?.click()}>
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content text-2xl ring-2 ring-primary/30">
-              {group.groupPic ? (
-                <img src={group.groupPic} alt={group.groupName} className="w-full h-full object-cover" />
-              ) : "👥"}
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 20px 12px" }}>
+          <div style={{ position: "relative", cursor: isAdmin ? "pointer" : "default" }} onClick={() => isAdmin && !uploading && fileRef.current?.click()}>
+            <Avatar src={group.groupPic} name={group.groupName} size={80} />
             {isAdmin && (
-              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                {uploading ? <span className="loading loading-spinner loading-xs text-white" /> : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }}
+                onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                onMouseLeave={e => e.currentTarget.style.opacity = "0"}
+              >
+                {uploading ? <span className="loading loading-spinner loading-xs" style={{ color: "#fff" }} /> : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 )}
               </div>
             )}
-            {isAdmin && <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePicChange} />}
+            {isAdmin && <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePicChange} />}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
             {editingName ? (
               <>
-                <input className="input input-sm input-bordered" value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleNameSave()} autoFocus />
-                <button className="btn btn-sm btn-primary" onClick={handleNameSave}>Save</button>
-                <button className="btn btn-sm btn-ghost" onClick={() => { setEditingName(false); setNewName(group.groupName); }}>✕</button>
+                <input
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleNameSave()}
+                  autoFocus
+                  style={{ background: "var(--ng-hover)", border: "1px solid var(--ng-border)", color: "var(--ng-text)", borderRadius: "var(--r-btn)", padding: "6px 10px", fontFamily: "var(--font-body)", fontSize: 14, outline: "none" }}
+                />
+                <button onClick={handleNameSave} style={{ background: "var(--ng-accent)", border: "none", cursor: "pointer", color: "var(--ng-accent-fg)", borderRadius: "var(--r-btn)", padding: "6px 12px", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}>Save</button>
+                <button onClick={() => { setEditingName(false); setNewName(group.groupName); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", fontSize: 16, padding: 4 }}>✕</button>
               </>
             ) : (
               <>
-                <p className="font-bold text-lg">{group.groupName}</p>
+                <p style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 18, color: "var(--ng-text)", margin: 0 }}>{group.groupName}</p>
                 {isAdmin && (
-                  <button className="btn btn-ghost btn-xs" onClick={() => setEditingName(true)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
+                  <button aria-label="Edit group name" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", padding: 2, borderRadius: 6 }} onClick={() => setEditingName(true)}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
                 )}
               </>
             )}
           </div>
-          <p className="text-xs text-base-content/40 mt-1">{group.participants?.length || 0} Members</p>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ng-muted)", margin: "4px 0 0" }}>{group.participants?.length || 0} Members</p>
           {group.createdAt && (
-            <p className="text-xs text-base-content/30 mt-1">Created {new Date(group.createdAt).toLocaleDateString()}</p>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ng-muted)", margin: "2px 0 0", opacity: 0.6 }}>
+              Created {new Date(group.createdAt).toLocaleDateString()}
+            </p>
           )}
         </div>
 
-        <div className="px-5 pb-5">
-          <p className="text-xs font-semibold text-base-content/40 uppercase tracking-wide mb-3">Members</p>
-          <div className="flex flex-col gap-2">
+        <div style={{ padding: "0 20px 20px" }}>
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--ng-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Members</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {group.participants?.map((member) => {
               const memberId = (member._id || member)?.toString();
               const isGroupAdmin = memberId === adminId;
               return (
-                <div key={memberId} className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content font-bold flex-shrink-0">
-                    {member.profilepic ? (
-                      <img src={member.profilepic} alt={member.fullname} className="w-full h-full object-cover" />
-                    ) : (member.fullname?.charAt(0).toUpperCase() || "?")}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">
-                      {member.fullname}
-                      {isGroupAdmin && <span className="ml-1.5 text-warning">👑</span>}
+                <div key={memberId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Avatar src={member.profilepic} name={member.fullname} size={36} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ng-text)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {member.fullname}{isGroupAdmin && <span style={{ marginLeft: 6 }}>👑</span>}
                     </p>
-                    <p className="text-xs text-base-content/40">@{member.username}</p>
+                    <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ng-muted)", margin: 0 }}>@{member.username}</p>
                   </div>
-                  {isGroupAdmin && <span className="badge badge-warning badge-sm">Admin</span>}
+                  {isGroupAdmin && (
+                    <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--ng-accent)", background: "rgba(232,163,61,0.15)", borderRadius: 6, padding: "2px 7px" }}>Admin</span>
+                  )}
                 </div>
               );
             })}
@@ -137,18 +147,15 @@ const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
   );
 };
 
+/* ============================================================
+   ChatWindow
+   ============================================================ */
 const ChatWindow = () => {
   const { socket } = useSocket();
   const { authUser } = useAuth();
   const [showGroupInfo, setShowGroupInfo] = useState(false);
 
-  const {
-    selectedUser,
-    selectedGroup,
-    messages,
-    onlineUsers,
-    setSelectedGroup,
-  } = useChatStore();
+  const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup } = useChatStore();
 
   const { loading: userMessagesLoading } = useGetMessages(selectedUser?._id);
   const { sendMessage, sending: userSending } = useSendMessage(selectedUser?._id);
@@ -156,10 +163,10 @@ const ChatWindow = () => {
   const { sendGroupMessage, sending: groupSending } = useSendGroupMessage(selectedGroup?._id);
   const bottomRef = useRef(null);
 
+  const { setActiveSection } = useChatStore();
+
   useEffect(() => {
-    setTimeout(() => {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
+    setTimeout(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
   }, [messages]);
 
   useEffect(() => {
@@ -171,16 +178,12 @@ const ChatWindow = () => {
   useEffect(() => {
     if (!selectedUser?._id) return;
     const markAsRead = async () => {
-      try {
-        await axiosInstance.put(`/message/read/${selectedUser._id}`);
-      } catch (error) {
-        console.log("Error marking messages as read:", error);
-      }
+      try { await axiosInstance.put(`/message/read/${selectedUser._id}`); }
+      catch (error) { console.log("Error marking messages as read:", error); }
     };
     markAsRead();
   }, [selectedUser?._id]);
 
-  // Socket: update selectedGroup when groupUpdated fires
   useEffect(() => {
     if (!socket) return;
     socket.on("groupUpdated", (updatedGroup) => {
@@ -192,150 +195,129 @@ const ChatWindow = () => {
     return () => socket.off("groupUpdated");
   }, [socket, selectedGroup?._id]);
 
+  /* ---- Empty state ---- */
   if (!selectedUser && !selectedGroup) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-base-100 gap-4">
-
-        <div className="w-20 h-20 rounded-full bg-base-300 flex items-center justify-center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-10 h-10 text-base-content/20"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1}
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
+      <div style={{
+        flex: 1, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        background: "var(--ng-bg)", gap: 20, padding: 24,
+      }}>
+        {/* Icon tile */}
+        <div style={{
+          width: 72, height: 72, borderRadius: "var(--r-tile)",
+          background: "var(--ng-panel)", border: "1px solid var(--ng-border)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: "var(--ng-muted)" }}>
+            <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
 
-        <div className="text-center">
-          <p className="font-semibold text-base-content/40 text-lg">
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 20, color: "var(--ng-text)", margin: "0 0 8px" }}>
             No conversation selected
           </p>
-
-          <p className="text-sm text-base-content/30 mt-1">
+          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--ng-muted)", margin: "0 0 20px" }}>
             Pick someone from the sidebar to start chatting
           </p>
+          <button
+            onClick={() => setActiveSection("people")}
+            style={{
+              background: "var(--ng-accent)", color: "var(--ng-accent-fg)",
+              border: "none", cursor: "pointer",
+              fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14,
+              padding: "10px 24px", borderRadius: "var(--r-btn)",
+              transition: "opacity 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+            onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+          >
+            Find people
+          </button>
         </div>
-
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-base-100">
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", background: "var(--ng-bg)", overflow: "hidden" }}>
 
-      {/* ================= HEADER ================= */}
-      <div className="flex items-center gap-3 px-5 py-3.5 border-b border-base-300 bg-base-200">
-
+      {/* ========== HEADER ========== */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 20px", borderBottom: "1px solid var(--ng-border)",
+        background: "var(--ng-panel)", flexShrink: 0,
+      }}>
         {selectedGroup ? (
           <>
-            {/* Group Avatar - clickable for info */}
-            <div
-              className="w-10 h-10 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content text-lg cursor-pointer"
-              onClick={() => setShowGroupInfo(true)}
-            >
-              {selectedGroup.groupPic ? (
-                <img src={selectedGroup.groupPic} alt={selectedGroup.groupName} className="w-full h-full object-cover" />
-              ) : "👥"}
+            <div style={{ cursor: "pointer" }} onClick={() => setShowGroupInfo(true)}>
+              <Avatar src={selectedGroup.groupPic} name={selectedGroup.groupName} size={40} />
             </div>
-
-            {/* Group Info - clickable */}
-            <div className="cursor-pointer" onClick={() => setShowGroupInfo(true)}>
-              <p className="font-semibold text-base-content text-sm">
+            <div style={{ cursor: "pointer" }} onClick={() => setShowGroupInfo(true)}>
+              <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, color: "var(--ng-text)", margin: 0 }}>
                 {selectedGroup.groupName}
               </p>
-
-              <p className="text-xs text-base-content/40">
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ng-muted)", margin: 0 }}>
                 {selectedGroup.participants?.length || 0} members · tap for info
               </p>
             </div>
           </>
         ) : (
           <>
-            {/* User Avatar */}
-            <div className="relative">
-
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-primary flex items-center justify-center text-primary-content font-bold">
-                {selectedUser?.profilepic ? (
-                  <img
-                    src={selectedUser.profilepic}
-                    alt={selectedUser.fullname}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.currentTarget.style.display = "none"; }}
-                  />
-                ) : null}
-                {!selectedUser?.profilepic && (selectedUser?.fullname?.charAt(0).toUpperCase() || "?")}
-              </div>
-
-              {onlineUsers?.includes(selectedUser?._id) && (
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-success rounded-full border-2 border-base-200" />
-              )}
-
+            <div style={{ position: "relative" }}>
+              <Avatar
+                src={selectedUser?.profilepic}
+                name={selectedUser?.fullname || selectedUser?.username}
+                size={40}
+                online={onlineUsers?.includes(selectedUser?._id)}
+                borderColor="var(--ng-panel)"
+              />
             </div>
-
-            {/* User Info */}
             <div>
-              <p className="font-semibold text-base-content text-sm">
+              <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 15, color: "var(--ng-text)", margin: 0 }}>
                 {selectedUser?.fullname}
               </p>
-
-              <p
-                className={`text-xs ${
-                  onlineUsers?.includes(selectedUser?._id)
-                    ? "text-success"
-                    : "text-base-content/40"
-                }`}
-              >
+              <p style={{
+                fontFamily: "var(--font-body)", fontSize: 12, margin: 0,
+                color: onlineUsers?.includes(selectedUser?._id) ? "var(--ng-online)" : "var(--ng-muted)",
+              }}>
                 {onlineUsers?.includes(selectedUser?._id) ? "Online" : "Offline"}
               </p>
             </div>
           </>
         )}
-
       </div>
 
-      {/* ================= MESSAGES ================= */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1">
-
+      {/* ========== MESSAGES ========== */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 4 }}>
         {selectedGroup ? (
-  groupMessagesLoading ? (
-    <div className="flex justify-center py-10">
-      <span className="loading loading-dots loading-md text-primary" />
-    </div>
-  ) : messages.length === 0 ? (
-    <p className="text-center text-xs text-base-content/30 py-10">
-      No messages yet — start the conversation! 👋
-    </p>
-  ) : (
-    messages.map((msg) => (
-      <Message key={msg._id} message={msg} />
-    ))
-  )
-) : userMessagesLoading ? (
-  <div className="flex justify-center py-10">
-    <span className="loading loading-dots loading-md text-primary" />
-  </div>
-) : messages.length === 0 ? (
-  <p className="text-center text-xs text-base-content/30 py-10">
-    No messages yet — say hello! 👋
-  </p>
-) : (
-  messages.map((msg) => (
-    <Message key={msg._id} message={msg} />
-  ))
-)}
-
+          groupMessagesLoading ? (
+            <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+              <span className="loading loading-dots loading-md" style={{ color: "var(--ng-accent)" }} />
+            </div>
+          ) : messages.length === 0 ? (
+            <p style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ng-muted)", padding: "40px 0" }}>
+              No messages yet — start the conversation! 👋
+            </p>
+          ) : (
+            messages.map((msg) => <Message key={msg._id} message={msg} />)
+          )
+        ) : userMessagesLoading ? (
+          <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+            <span className="loading loading-dots loading-md" style={{ color: "var(--ng-accent)" }} />
+          </div>
+        ) : messages.length === 0 ? (
+          <p style={{ textAlign: "center", fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ng-muted)", padding: "40px 0" }}>
+            No messages yet — say hello! 👋
+          </p>
+        ) : (
+          messages.map((msg) => <Message key={msg._id} message={msg} />)
+        )}
         <div ref={bottomRef} />
-
       </div>
 
-      {/* ================= MESSAGE INPUT ================= */}
+      {/* ========== INPUT ========== */}
       <MessageInput
         onSend={selectedGroup ? sendGroupMessage : sendMessage}
         sending={selectedGroup ? groupSending : userSending}
@@ -347,13 +329,9 @@ const ChatWindow = () => {
           group={selectedGroup}
           authUser={authUser}
           onClose={() => setShowGroupInfo(false)}
-          onGroupUpdated={(updatedGroup) => {
-            setSelectedGroup(updatedGroup);
-            setShowGroupInfo(false);
-          }}
+          onGroupUpdated={(updatedGroup) => { setSelectedGroup(updatedGroup); setShowGroupInfo(false); }}
         />
       )}
-
     </div>
   );
 };
