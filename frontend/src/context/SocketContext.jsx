@@ -17,6 +17,8 @@ export const SocketProvider = ({ children }) => {
     markMessagesAsRead,
     addGroupMessage,
     setUserTyping,
+    updateMessageReactions,
+    updateMessagePinned,
   } = useChatStore();
 
   const SERVER_URL = import.meta.env.VITE_SERVER_URL || "";
@@ -63,6 +65,21 @@ export const SocketProvider = ({ children }) => {
         setUserTyping(senderId, false);
       });
 
+      // Reactions
+      newSocket.on("messageReaction", ({ messageId, reactions }) => {
+        updateMessageReactions(messageId, reactions);
+      });
+
+      // Pin/Unpin
+      newSocket.on("messagePinned", ({ messageId, isPinned, pinnedAt, pinnedBy }) => {
+        updateMessagePinned(messageId, isPinned, pinnedAt, pinnedBy);
+      });
+
+      // Nudge
+      newSocket.on("nudge", ({ senderId }) => {
+        window.dispatchEvent(new CustomEvent("chatapp:nudge", { detail: { senderId } }));
+      });
+
       // Group messages
       newSocket.on("groupMessage", (newMessage) => {
         addGroupMessage(newMessage, authUser._id);
@@ -77,6 +94,9 @@ export const SocketProvider = ({ children }) => {
         newSocket.off("messagesRead");
         newSocket.off("userTyping");
         newSocket.off("userStoppedTyping");
+        newSocket.off("messageReaction");
+        newSocket.off("messagePinned");
+        newSocket.off("nudge");
         newSocket.off("groupMessage");
         newSocket.close();
       };

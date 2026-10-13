@@ -1,13 +1,14 @@
 import { create } from "zustand";
 
 const useChatStore = create((set, get) => ({
-   selectedGroup: null,
+    selectedGroup: null,
 
-setSelectedGroup: (group) =>
-  set({
-    selectedGroup: group,
-    selectedUser: null,
-  }),
+    setSelectedGroup: (group) =>
+        set({
+            selectedGroup: group,
+            selectedUser: null,
+            replyingTo: null,
+        }),
     activeSection: "chats",
 
     messages: [],
@@ -16,6 +17,28 @@ setSelectedGroup: (group) =>
     unreadGroupCounts: {},
     chatters: [],
     typingMap: {},
+    replyingTo: null,
+
+    setReplyingTo: (msg) => set({ replyingTo: msg }),
+
+    updateMessageReactions: (messageId, reactions) =>
+        set((state) => ({
+            messages: state.messages.map((m) =>
+                m._id === messageId ? { ...m, reactions } : m
+            ),
+        })),
+
+    updateMessagePinned: (messageId, isPinned, pinnedAt, pinnedBy) =>
+        set((state) => ({
+            messages: state.messages.map((m) =>
+                m._id === messageId ? { ...m, isPinned, pinnedAt, pinnedBy } : m
+            ),
+        })),
+
+    removeMessageForMe: (messageId) =>
+        set((state) => ({
+            messages: state.messages.filter((m) => m._id !== messageId),
+        })),
 
     setUserTyping: (userId, isTyping) =>
         set((state) => ({
@@ -69,6 +92,7 @@ setSelectedGroup: (group) =>
     set((state) => ({
         selectedUser: user,
         selectedGroup: null,
+        replyingTo: null,
         messages: [], // Clear messages immediately so old conversation never flashes
         unreadCounts: user ? {
             ...state.unreadCounts,
