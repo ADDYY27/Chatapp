@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import toast from "react-hot-toast";
 import { useSocket } from "../context/SocketContext";
 import useChatStore from "../store/useChatStore";
+import axiosInstance from "../utils/axios";
 
 const EMOJIS = ["😊", "🧡", "🔥", "👍", "🎉", "😂", "✨", "👋", "👀", "🚀", "💯", "😴", "🙌", "💡"];
 
@@ -17,17 +18,37 @@ const MessageInput = ({
   const [text, setText] = useState("");
   const [showEmojis, setShowEmojis] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+
+  // Disappearing messages: "off" | "1h" | "24h"
+  const [disappearMode, setDisappearMode] = useState("off");
+
+  // Schedule send state
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState(null);
+  const [customScheduleInput, setCustomScheduleInput] = useState("");
+
+  // MediaRecorder Voice Notes
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [disappearMode, setDisappearMode] = useState("off"); // off, 24h, 7d
+  const [recordedAudioBlob, setRecordedAudioBlob] = useState(null);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState(null);
+  const [recordedDuration, setRecordedDuration] = useState(0);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+
+  const mediaRecorderRef = useRef(null);
+  const audioStreamRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const previewAudioRef = useRef(null);
+
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const { socket } = useSocket();
-  const { selectedUser } = useChatStore();
+  const { selectedUser, replyingTo, setReplyingTo } = useChatStore();
   const typingTimerRef = useRef(null);
   const isTypingRef = useRef(false);
 
+  // Typing indicator emitter
   const emitTyping = (isTyping) => {
     if (!socket || !selectedUser?._id) return;
     if (isTyping && !isTypingRef.current) {
@@ -65,18 +86,160 @@ const MessageInput = ({
     };
   }, [selectedUser?._id, socket]);
 
+  // Recording timer
   useEffect(() => {
     let timer;
     if (isRecording) {
       timer = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
-    } else {
-      setRecordingSeconds(0);
     }
     return () => clearInterval(timer);
   }, [isRecording]);
 
+  // Clean up audio tracks on unmount
+  useEffect(() => {
+    return () => {
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (recordedAudioUrl) {
+        URL.revokeObjectURL(recordedAudioUrl);
+      }
+    };
+  }, [recordedAudioUrl]);
+
+  /* Start Voice Recording */
+  const handleStartRecording = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error("Audio recording is not supported in this browser.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const url = URL.createObjectURL(audioBlob);
+        setRecordedAudioBlob(audioBlob);
+        setRecordedAudioUrl(url);
+        setRecordedDuration(recordingSeconds || 1);
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      setRecordedAudioBlob(null);
+      setRecordedAudioUrl(null);
+    } catch (err) {
+      console.error("Recording error:", err);
+      toast.error("Microphone access was denied or not found.");
+    }
+  };
+
+  /* Stop Recording and prepare preview */
+  const handleStopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    setIsRecording(false);
+  };
+
+  /* Cancel Recording */
+  const handleCancelRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    setIsRecording(false);
+    setRecordingSeconds(0);
+    setRecordedAudioBlob(null);
+    if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
+    setRecordedAudioUrl(null);
+    toast("Voice recording cancelled");
+  };
+
+  /* Send Recorded Audio */
+  const handleSendRecordedAudio = async () => {
+    if (!recordedAudioBlob) return;
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Audio = reader.result;
+      const duration = recordedDuration || 1;
+
+      if (onSendAudio) {
+        await onSendAudio(base64Audio, duration);
+      } else {
+        await onSend("", { audioUrl: base64Audio, audioDuration: duration, replyTo: replyingTo?._id });
+      }
+
+      setRecordedAudioBlob(null);
+      if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
+      setRecordedAudioUrl(null);
+      setReplyingTo(null);
+      toast.success("Voice note sent!");
+    };
+    reader.readAsDataURL(recordedAudioBlob);
+  };
+
+  /* Disappearing messages toggle */
+  const handleDisappearToggle = async () => {
+    const next = disappearMode === "off" ? "1h" : disappearMode === "1h" ? "24h" : "off";
+    setDisappearMode(next);
+    if (selectedUser?._id) {
+      try {
+        await axiosInstance.put(`/message/conversation/${selectedUser._id}/disappearing`, { duration: next });
+        toast.success(`Disappearing messages set to: ${next === "off" ? "Off" : next}`);
+      } catch {
+        toast.error("Failed to update disappearing setting");
+      }
+    }
+  };
+
+  /* Schedule Send handlers */
+  const handleSelectSchedulePreset = (minutes) => {
+    const future = new Date(Date.now() + minutes * 60 * 1000);
+    setScheduledTime(future);
+    setShowSchedulePicker(false);
+    toast.success(`Scheduled for ${future.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+  };
+
+  const handleCustomScheduleSubmit = () => {
+    if (!customScheduleInput) return;
+    const future = new Date(customScheduleInput);
+    if (isNaN(future.getTime()) || future <= new Date()) {
+      toast.error("Please pick a time in the future.");
+      return;
+    }
+    setScheduledTime(future);
+    setShowSchedulePicker(false);
+    toast.success(`Scheduled for ${future.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+  };
+
+  const handleClearSchedule = () => {
+    setScheduledTime(null);
+    setShowSchedulePicker(false);
+    toast("Scheduled time cleared");
+  };
+
+  /* Submit message */
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
     const trimmed = text.trim();
@@ -86,11 +249,18 @@ const MessageInput = ({
     emitTyping(false);
 
     try {
-      const result = await onSend(trimmed);
+      const options = {
+        replyTo: replyingTo?._id || null,
+        scheduledFor: scheduledTime ? scheduledTime.toISOString() : null,
+      };
+
+      const result = await onSend(trimmed, options);
       if (result !== false) {
         setText("");
         setShowEmojis(false);
         setShowAttachMenu(false);
+        setReplyingTo(null);
+        setScheduledTime(null);
         if (textareaRef.current) {
           textareaRef.current.style.height = "auto";
         }
@@ -110,31 +280,6 @@ const MessageInput = ({
   const handleSelectEmoji = (emoji) => {
     setText((prev) => prev + emoji);
     textareaRef.current?.focus();
-  };
-
-  const handleDisappearToggle = () => {
-    const next = disappearMode === "off" ? "24h" : disappearMode === "24h" ? "7d" : "off";
-    setDisappearMode(next);
-    toast(`Disappearing messages: ${next === "off" ? "Off" : next}`);
-  };
-
-  const handleScheduleSend = () => {
-    toast("Schedule send: Choose a time (feature preview)");
-  };
-
-  const handleFinishRecording = () => {
-    setIsRecording(false);
-    if (onSendAudio) {
-      onSendAudio(`audio::voice_note_${Date.now()}`, `${Math.max(1, recordingSeconds)}s`);
-    } else {
-      onSend(`🎤 Voice message (${recordingSeconds}s)`);
-    }
-    toast.success("Voice note sent!");
-  };
-
-  const handleCancelRecording = () => {
-    setIsRecording(false);
-    toast("Voice recording cancelled");
   };
 
   const handleAttachment = (type) => {
@@ -171,6 +316,55 @@ const MessageInput = ({
         }}
       />
 
+      {/* REPLY BAR (if currently replying to a message) */}
+      {replyingTo && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "var(--ng-panel)",
+            border: "1px solid var(--ng-border)",
+            borderLeft: `4px solid ${activeColor}`,
+            borderRadius: "var(--r-btn)",
+            padding: "6px 12px",
+            marginBottom: 8,
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ng-accent)" }}>
+              Replying to {replyingTo.senderName}
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--ng-muted)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 400,
+              }}
+            >
+              {replyingTo.text}
+            </span>
+          </div>
+          <button
+            onClick={() => setReplyingTo(null)}
+            aria-label="Cancel reply"
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--ng-muted)",
+              cursor: "pointer",
+              fontSize: 16,
+              padding: "2px 6px",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* QUICK ACTION CHIPS ROW (Disappear, Schedule, Nudge) */}
       <div
         style={{
@@ -178,6 +372,7 @@ const MessageInput = ({
           alignItems: "center",
           gap: 8,
           marginBottom: 10,
+          flexWrap: "wrap",
         }}
       >
         {/* Disappear chip */}
@@ -206,28 +401,151 @@ const MessageInput = ({
         </button>
 
         {/* Schedule send chip */}
-        <button
-          onClick={handleScheduleSend}
-          aria-label="Schedule send message"
-          style={{
-            background: "var(--ng-hover)",
-            border: "1px solid var(--ng-border)",
-            color: "var(--ng-muted)",
-            fontFamily: "var(--font-body)",
-            fontSize: 12,
-            fontWeight: 500,
-            padding: "5px 12px",
-            borderRadius: 99,
-            cursor: "pointer",
-            transition: "all 0.15s",
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--ng-text)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--ng-muted)")}
-        >
-          Schedule send
-        </button>
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => setShowSchedulePicker((prev) => !prev)}
+            aria-label="Schedule send message"
+            style={{
+              background: scheduledTime ? "rgba(232, 163, 61, 0.15)" : "var(--ng-hover)",
+              border: scheduledTime ? `1px solid ${activeColor}` : "1px solid var(--ng-border)",
+              color: scheduledTime ? "var(--ng-accent)" : "var(--ng-muted)",
+              fontFamily: "var(--font-body)",
+              fontSize: 12,
+              fontWeight: 500,
+              padding: "5px 12px",
+              borderRadius: 99,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              transition: "all 0.15s",
+            }}
+          >
+            {scheduledTime ? (
+              <>
+                <span>⏰ {scheduledTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearSchedule();
+                  }}
+                  style={{ marginLeft: 4, cursor: "pointer", fontWeight: 700 }}
+                >
+                  ✕
+                </span>
+              </>
+            ) : (
+              "Schedule send"
+            )}
+          </button>
 
-        {/* Nudge chip with accent outline */}
+          {/* Schedule Picker Popup */}
+          {showSchedulePicker && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 36,
+                left: 0,
+                zIndex: 40,
+                background: "var(--ng-panel)",
+                border: "1px solid var(--ng-border)",
+                borderRadius: "var(--r-card)",
+                padding: "12px",
+                width: 240,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+              }}
+            >
+              <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "var(--ng-text)" }}>
+                Schedule message
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button
+                  onClick={() => handleSelectSchedulePreset(5)}
+                  style={{
+                    textAlign: "left",
+                    padding: "6px 10px",
+                    background: "var(--ng-hover)",
+                    border: "none",
+                    borderRadius: 6,
+                    color: "var(--ng-text)",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  In 5 minutes
+                </button>
+                <button
+                  onClick={() => handleSelectSchedulePreset(30)}
+                  style={{
+                    textAlign: "left",
+                    padding: "6px 10px",
+                    background: "var(--ng-hover)",
+                    border: "none",
+                    borderRadius: 6,
+                    color: "var(--ng-text)",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  In 30 minutes
+                </button>
+                <button
+                  onClick={() => handleSelectSchedulePreset(60)}
+                  style={{
+                    textAlign: "left",
+                    padding: "6px 10px",
+                    background: "var(--ng-hover)",
+                    border: "none",
+                    borderRadius: 6,
+                    color: "var(--ng-text)",
+                    fontSize: 12,
+                    cursor: "pointer",
+                  }}
+                >
+                  In 1 hour
+                </button>
+              </div>
+
+              <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--ng-border)" }}>
+                <p style={{ margin: "0 0 4px", fontSize: 11, color: "var(--ng-muted)" }}>Custom time:</p>
+                <input
+                  type="datetime-local"
+                  value={customScheduleInput}
+                  onChange={(e) => setCustomScheduleInput(e.target.value)}
+                  style={{
+                    width: "100%",
+                    fontSize: 11,
+                    background: "var(--ng-bg)",
+                    border: "1px solid var(--ng-border)",
+                    borderRadius: 4,
+                    color: "var(--ng-text)",
+                    padding: "4px 6px",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  onClick={handleCustomScheduleSubmit}
+                  style={{
+                    width: "100%",
+                    marginTop: 6,
+                    padding: "6px 0",
+                    background: activeColor,
+                    color: activeColorFg,
+                    border: "none",
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Set Custom Time
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Nudge chip */}
         <button
           onClick={onNudge}
           aria-label="Nudge user"
@@ -314,27 +632,6 @@ const MessageInput = ({
           >
             <span>📄</span> Document
           </button>
-          <button
-            onClick={() => handleAttachment("poll")}
-            style={{
-              width: "100%",
-              textAlign: "left",
-              padding: "10px 16px",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "var(--font-body)",
-              fontSize: 13,
-              color: "var(--ng-text)",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--ng-hover)")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
-          >
-            <span>📊</span> Poll
-          </button>
         </div>
       )}
 
@@ -400,14 +697,14 @@ const MessageInput = ({
         }}
       >
         {isRecording ? (
-          /* RECORDING IN PROGRESS VIEW */
+          /* ACTIVE RECORDING VIEW */
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               width: "100%",
-              padding: "4px 10px",
+              padding: "4px 12px",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -417,7 +714,7 @@ const MessageInput = ({
                   height: 10,
                   borderRadius: "50%",
                   backgroundColor: "var(--ng-terracotta)",
-                  animation: "ngPulseSlow 1s infinite ease-in-out",
+                  boxShadow: "0 0 8px var(--ng-terracotta)",
                 }}
               />
               <span
@@ -428,7 +725,7 @@ const MessageInput = ({
                   color: "var(--ng-text)",
                 }}
               >
-                Recording voice note... {recordingSeconds}s
+                Recording... {recordingSeconds}s
               </span>
             </div>
 
@@ -449,7 +746,7 @@ const MessageInput = ({
                 Cancel
               </button>
               <button
-                onClick={handleFinishRecording}
+                onClick={handleStopRecording}
                 style={{
                   background: activeColor,
                   color: activeColorFg,
@@ -462,14 +759,94 @@ const MessageInput = ({
                   borderRadius: 99,
                 }}
               >
-                Send
+                Done
+              </button>
+            </div>
+          </div>
+        ) : recordedAudioBlob ? (
+          /* RECORDED AUDIO PREVIEW VIEW */
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              padding: "4px 12px",
+            }}
+          >
+            <audio
+              ref={previewAudioRef}
+              src={recordedAudioUrl}
+              onEnded={() => setIsPlayingPreview(false)}
+            />
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button
+                onClick={() => {
+                  if (previewAudioRef.current) {
+                    if (isPlayingPreview) {
+                      previewAudioRef.current.pause();
+                      setIsPlayingPreview(false);
+                    } else {
+                      previewAudioRef.current.play();
+                      setIsPlayingPreview(true);
+                    }
+                  }
+                }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: activeColor,
+                  color: activeColorFg,
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {isPlayingPreview ? "⏸" : "▶"}
+              </button>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ng-text)" }}>
+                Voice Note ({recordedDuration}s)
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={handleCancelRecording}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--ng-muted)",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  padding: "6px 10px",
+                }}
+              >
+                Discard
+              </button>
+              <button
+                onClick={handleSendRecordedAudio}
+                style={{
+                  background: activeColor,
+                  color: activeColorFg,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "6px 16px",
+                  borderRadius: 99,
+                }}
+              >
+                Send Voice Note
               </button>
             </div>
           </div>
         ) : (
           /* STANDARD INPUT VIEW */
           <>
-            {/* '+' Attachment button (44px min touch target) */}
+            {/* '+' Attachment button */}
             <button
               type="button"
               onClick={() => {
@@ -539,7 +916,7 @@ const MessageInput = ({
               }}
             />
 
-            {/* Emoji button (44px min touch target) */}
+            {/* Emoji button */}
             <button
               type="button"
               onClick={() => {
@@ -587,10 +964,10 @@ const MessageInput = ({
               </svg>
             </button>
 
-            {/* Microphone button (44px min touch target) */}
+            {/* Microphone button */}
             <button
               type="button"
-              onClick={() => setIsRecording(true)}
+              onClick={handleStartRecording}
               aria-label="Record voice message"
               style={{
                 width: 44,
@@ -633,7 +1010,7 @@ const MessageInput = ({
               </svg>
             </button>
 
-            {/* Saffron Send button (44px min touch target) */}
+            {/* Saffron Send button */}
             <button
               type="button"
               onClick={handleSubmit}
