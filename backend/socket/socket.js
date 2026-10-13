@@ -25,6 +25,7 @@ export const getReciverSocketId = (receverId) => {
 };
 
 const userSocketmap = {};
+const nudgeRateLimitMap = new Map();
 
 io.on('connection', (socket) => {
 
@@ -71,6 +72,26 @@ io.on('connection', (socket) => {
         }
     });
 
+
+    // ================= NUDGE =================
+    socket.on("nudge", ({ receiverId }) => {
+        if (!userId || !receiverId) return;
+        const nudgeKey = `${userId}:${receiverId}`;
+        const lastNudge = nudgeRateLimitMap.get(nudgeKey) || 0;
+        const now = Date.now();
+        if (now - lastNudge < 5000) {
+            socket.emit("nudgeError", { message: "Please wait a few seconds before nudging again." });
+            return;
+        }
+        nudgeRateLimitMap.set(nudgeKey, now);
+
+        const receiverSocketId = getReciverSocketId(receiverId);
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("nudge", {
+                senderId: userId
+            });
+        }
+    });
 
     // ================= DISCONNECT =================
 

@@ -13,6 +13,7 @@ import userRouter from './rout/userRout.js';
 import { app, server } from './socket/socket.js';
 import groupRouter from './rout/groupRout.js';
 import mongoose from "mongoose";
+import { startScheduledMessageJob } from './utils/scheduledJob.js';
 
 dotenv.config();
 
@@ -66,6 +67,7 @@ app.get("/health", (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 connectDB();
+startScheduledMessageJob();
 server.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
