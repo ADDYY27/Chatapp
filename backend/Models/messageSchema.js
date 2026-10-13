@@ -18,9 +18,70 @@ const messageSchema = mongoose.Schema({
         default: false
     },
 
-    message:{
-        type:String,
-        required:true
+    message: {
+        type: String,
+        default: ""
+    },
+
+    audioUrl: {
+        type: String,
+        default: null
+    },
+
+    audioDuration: {
+        type: Number,
+        default: 0
+    },
+
+    reactions: [
+        {
+            emoji: { type: String, required: true },
+            userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+        }
+    ],
+
+    isPinned: {
+        type: Boolean,
+        default: false
+    },
+
+    pinnedAt: {
+        type: Date,
+        default: null
+    },
+
+    pinnedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+    },
+
+    replyTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Message",
+        default: null
+    },
+
+    deletedFor: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        }
+    ],
+
+    isScheduled: {
+        type: Boolean,
+        default: false
+    },
+
+    scheduledFor: {
+        type: Date,
+        default: null
+    },
+
+    expiresAt: {
+        type: Date,
+        default: null
     },
 
     isRead: {

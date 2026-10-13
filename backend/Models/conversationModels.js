@@ -38,6 +38,12 @@ const conversationSchema = mongoose.Schema(
             default: "",
         },
 
+        disappearingDuration: {
+            type: String,
+            enum: ["off", "1h", "24h"],
+            default: "off",
+        },
+
         // User-specific clear tracking
         clearedBy: [
             {
