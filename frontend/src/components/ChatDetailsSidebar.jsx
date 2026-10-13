@@ -1,22 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Avatar from "./Avatar";
+import useChatStore from "../store/useChatStore";
+import axiosInstance from "../utils/axios";
 import toast from "react-hot-toast";
 
 const PALETTE = [
-  { name: "Terracotta", hex: "#C9743E", fg: "#16110A" },
   { name: "Saffron", hex: "#E8A33D", fg: "#16110A" },
+  { name: "Terracotta", hex: "#C9743E", fg: "#16110A" },
   { name: "Sage", hex: "#7FA38F", fg: "#0E1311" },
-  { name: "Dusty Teal", hex: "#6E9AA6", fg: "#0E1311" },
-  { name: "Lavender", hex: "#A78BFA", fg: "#0E1311" },
-];
-
-const SHARED_MEDIA = [
-  { id: 1, bg: "#C9743E", label: "IMG_01.jpg" },
-  { id: 2, bg: "#22332B", label: "code_snippet.ts" },
-  { id: 3, bg: "#7FA38F", label: "mockup_v2.png" },
-  { id: 4, bg: "#44422A", label: "audio_note.wav" },
-  { id: 5, bg: "#19241E", label: "doc_brief.pdf" },
-  { id: 6, bg: "#6E9AA6", label: "palette.svg" },
+  { name: "Teal", hex: "#6E9AA6", fg: "#0E1311" },
+  { name: "Lilac", hex: "#B89FD9", fg: "#0E1311" },
 ];
 
 const ChatDetailsSidebar = ({
@@ -27,25 +20,55 @@ const ChatDetailsSidebar = ({
   onColorChange,
   onViewPinned,
 }) => {
-  const [isMuted, setIsMuted] = useState(false);
-  const [isDisappearing, setIsDisappearing] = useState(false);
+  const { messages } = useChatStore();
+
+  const entityId = user?._id || group?._id;
+
+  const [isMuted, setIsMuted] = useState(() => {
+    try {
+      return localStorage.getItem(`chatapp_muted_${entityId}`) === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const [disappearingMode, setDisappearingMode] = useState("off");
 
   const displayName = group ? group.groupName : (user?.fullname || user?.username || "Contact");
   const handle = group
     ? `${group.participants?.length || 0} members · Group`
-    : `@${user?.username || "user"} · joined Aug 2026`;
+    : `@${user?.username || "user"}`;
   const avatarSrc = group ? group.groupPic : user?.profilepic;
+
+  // Filter actual shared media/files from current conversation messages
+  const sharedItems = (messages || []).filter(
+    (m) => m.audioUrl || m.image || m.message?.startsWith("audio::")
+  );
+
+  // Filter pinned messages from current conversation
+  const pinnedMessages = (messages || []).filter((m) => m.isPinned);
 
   const handleToggleMute = () => {
     const next = !isMuted;
     setIsMuted(next);
+    try {
+      localStorage.setItem(`chatapp_muted_${entityId}`, String(next));
+    } catch {
+      // ignore
+    }
     toast.success(next ? `Muted notifications for ${displayName}` : `Unmuted ${displayName}`);
   };
 
-  const handleToggleDisappearing = () => {
-    const next = !isDisappearing;
-    setIsDisappearing(next);
-    toast.success(next ? "Disappearing messages: 24 hours" : "Disappearing messages turned off");
+  const handleDisappearingChange = async (duration) => {
+    setDisappearingMode(duration);
+    if (user?._id) {
+      try {
+        await axiosInstance.put(`/message/conversation/${user._id}/disappearing`, { duration });
+        toast.success(`Disappearing messages: ${duration === "off" ? "Off" : duration}`);
+      } catch {
+        toast.error("Failed to update disappearing setting");
+      }
+    }
   };
 
   const S = {
@@ -77,8 +100,8 @@ const ChatDetailsSidebar = ({
   return (
     <aside
       style={{
-        width: 300,
-        minWidth: 300,
+        width: 272,
+        minWidth: 272,
         height: "100%",
         background: "var(--ng-panel)",
         borderLeft: "1px solid var(--ng-border)",
@@ -86,6 +109,7 @@ const ChatDetailsSidebar = ({
         flexDirection: "column",
         overflowY: "auto",
         flexShrink: 0,
+        boxSizing: "border-box",
       }}
       aria-label="Conversation details"
     >
@@ -95,7 +119,7 @@ const ChatDetailsSidebar = ({
           display: "flex",
           alignItems: "center",
           justifyContent: "flex-end",
-          padding: "12px 16px 0",
+          padding: "12px 14px 0",
         }}
       >
         {onClose && (
@@ -107,7 +131,7 @@ const ChatDetailsSidebar = ({
               border: "none",
               cursor: "pointer",
               color: "var(--ng-muted)",
-              padding: 8,
+              padding: 6,
               borderRadius: "var(--r-btn)",
               minWidth: 36,
               minHeight: 36,
@@ -137,14 +161,14 @@ const ChatDetailsSidebar = ({
           flexDirection: "column",
           alignItems: "center",
           textAlign: "center",
-          padding: "8px 20px 24px",
+          padding: "4px 16px 20px",
           borderBottom: "1px solid var(--ng-border)",
         }}
       >
         <Avatar
           src={avatarSrc}
           name={displayName}
-          size={76}
+          size={72}
           ring={true}
           ringColor={activeColor}
         />
@@ -152,9 +176,9 @@ const ChatDetailsSidebar = ({
           style={{
             fontFamily: "var(--font-heading)",
             fontWeight: 700,
-            fontSize: 18,
+            fontSize: 17,
             color: "var(--ng-text)",
-            margin: "14px 0 2px",
+            margin: "12px 0 2px",
           }}
         >
           {displayName}
@@ -171,48 +195,86 @@ const ChatDetailsSidebar = ({
         </p>
       </div>
 
-      <div style={{ padding: "20px 20px" }}>
+      <div style={{ padding: "16px 16px" }}>
         {/* SHARED SECTION */}
-        <div style={{ marginBottom: 24 }}>
-          <p style={S.sectionLabel}>Shared</p>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 8,
-            }}
-          >
-            {SHARED_MEDIA.map((item) => (
-              <div
-                key={item.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`Shared item ${item.label}`}
-                onClick={() => toast(`Opening shared file: ${item.label}`)}
-                style={{
-                  width: "100%",
-                  aspectRatio: "1",
-                  borderRadius: 12,
-                  backgroundColor: item.bg,
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  cursor: "pointer",
-                  transition: "transform 0.15s, opacity 0.15s",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.04)";
-                  e.currentTarget.style.opacity = "0.9";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.opacity = "1";
-                }}
-              />
-            ))}
-          </div>
+        <div style={{ marginBottom: 20 }}>
+          <p style={S.sectionLabel}>Shared ({sharedItems.length})</p>
+          {sharedItems.length > 0 ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 6,
+              }}
+            >
+              {sharedItems.slice(0, 9).map((item, idx) => (
+                <div
+                  key={item._id || idx}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Shared item ${idx + 1}`}
+                  onClick={() => {
+                    const el = document.getElementById(`msg-${item._id}`);
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  style={{
+                    width: "100%",
+                    aspectRatio: "1",
+                    borderRadius: 8,
+                    backgroundColor: "var(--ng-hover)",
+                    border: "1px solid var(--ng-border)",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 4,
+                    transition: "transform 0.15s, opacity 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = "scale(1.04)";
+                    e.currentTarget.style.opacity = "0.9";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.style.opacity = "1";
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>
+                    {item.audioUrl ? "🎤" : item.image ? "🖼️" : "📁"}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 9,
+                      color: "var(--ng-muted)",
+                      marginTop: 2,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      maxWidth: "100%",
+                    }}
+                  >
+                    {item.audioUrl ? "Voice" : "Media"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div
+              style={{
+                padding: "16px 0",
+                textAlign: "center",
+                color: "var(--ng-muted)",
+                fontSize: 12,
+              }}
+            >
+              No shared media yet
+            </div>
+          )}
         </div>
 
         {/* THEIR COLOUR SECTION */}
-        <div style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 20 }}>
           <p style={S.sectionLabel}>Their Colour</p>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {PALETTE.map((swatch) => {
@@ -222,9 +284,10 @@ const ChatDetailsSidebar = ({
                   key={swatch.name}
                   onClick={() => onColorChange?.(swatch.hex, swatch.fg)}
                   aria-label={`Choose conversation color ${swatch.name}`}
+                  title={swatch.name}
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 24,
+                    height: 24,
                     borderRadius: "50%",
                     backgroundColor: swatch.hex,
                     border: "none",
@@ -248,6 +311,58 @@ const ChatDetailsSidebar = ({
           </div>
         </div>
 
+        {/* PINNED MESSAGES SECTION */}
+        <div style={{ marginBottom: 20, paddingTop: 10, borderTop: "1px solid var(--ng-border)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+            <p style={{ ...S.sectionLabel, margin: 0 }}>Pinned Messages ({pinnedMessages.length})</p>
+          </div>
+          {pinnedMessages.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {pinnedMessages.map((msg) => (
+                <div
+                  key={msg._id}
+                  onClick={() => {
+                    const el = document.getElementById(`msg-${msg._id}`);
+                    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  style={{
+                    padding: "8px 10px",
+                    background: "var(--ng-hover)",
+                    borderRadius: "var(--r-btn)",
+                    border: "1px dashed var(--ng-accent)",
+                    cursor: "pointer",
+                    transition: "opacity 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ng-accent)" }}>📌 PINNED</span>
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 12,
+                      color: "var(--ng-text)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {msg.message || (msg.audioUrl ? "🎤 Voice note" : "Message")}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ color: "var(--ng-muted)", fontSize: 12, padding: "8px 0" }}>
+              No pinned messages
+            </div>
+          )}
+        </div>
+
         {/* TOGGLES & SETTINGS */}
         <div>
           {/* Mute */}
@@ -259,8 +374,8 @@ const ChatDetailsSidebar = ({
               aria-label="Mute notifications"
               onClick={handleToggleMute}
               style={{
-                width: 38,
-                height: 22,
+                width: 36,
+                height: 20,
                 borderRadius: 99,
                 backgroundColor: isMuted ? "var(--ng-accent)" : "var(--ng-hover)",
                 border: "1px solid var(--ng-border)",
@@ -275,8 +390,8 @@ const ChatDetailsSidebar = ({
                   position: "absolute",
                   top: 2,
                   left: isMuted ? 18 : 2,
-                  width: 16,
-                  height: 16,
+                  width: 14,
+                  height: 14,
                   borderRadius: "50%",
                   backgroundColor: isMuted ? "var(--ng-accent-fg)" : "var(--ng-muted)",
                   transition: "left 0.2s, background 0.2s",
@@ -285,66 +400,30 @@ const ChatDetailsSidebar = ({
             </button>
           </div>
 
-          {/* Disappearing */}
-          <div style={S.row}>
-            <p style={S.rowLabel}>Disappearing</p>
-            <button
-              role="switch"
-              aria-checked={isDisappearing}
-              aria-label="Disappearing messages"
-              onClick={handleToggleDisappearing}
-              style={{
-                width: 38,
-                height: 22,
-                borderRadius: 99,
-                backgroundColor: isDisappearing ? "var(--ng-accent)" : "var(--ng-hover)",
-                border: "1px solid var(--ng-border)",
-                cursor: "pointer",
-                position: "relative",
-                transition: "background 0.2s",
-                padding: 0,
-              }}
-            >
-              <span
-                style={{
-                  position: "absolute",
-                  top: 2,
-                  left: isDisappearing ? 18 : 2,
-                  width: 16,
-                  height: 16,
-                  borderRadius: "50%",
-                  backgroundColor: isDisappearing ? "var(--ng-accent-fg)" : "var(--ng-muted)",
-                  transition: "left 0.2s, background 0.2s",
-                }}
-              />
-            </button>
-          </div>
-
-          {/* Pinned */}
-          <div style={{ ...S.row, borderBottom: "none" }}>
-            <p style={S.rowLabel}>Pinned (1)</p>
-            <button
-              onClick={() => {
-                onViewPinned?.();
-                toast("Showing pinned message: Demo day is Friday, 6 PM");
-              }}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                fontFamily: "var(--font-body)",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "var(--ng-accent)",
-                padding: "4px 8px",
-                borderRadius: 6,
-                transition: "opacity 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.8")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-            >
-              View
-            </button>
+          {/* Disappearing Messages Duration */}
+          <div style={{ ...S.row, flexDirection: "column", alignItems: "flex-start", gap: 8, borderBottom: "none" }}>
+            <p style={S.rowLabel}>Disappearing Messages</p>
+            <div style={{ display: "flex", gap: 6, width: "100%" }}>
+              {["off", "1h", "24h"].map((dur) => (
+                <button
+                  key={dur}
+                  onClick={() => handleDisappearingChange(dur)}
+                  style={{
+                    flex: 1,
+                    padding: "4px 0",
+                    borderRadius: 6,
+                    border: disappearingMode === dur ? `1px solid ${activeColor}` : "1px solid var(--ng-border)",
+                    background: disappearingMode === dur ? "rgba(232,163,61,0.15)" : "var(--ng-hover)",
+                    color: disappearingMode === dur ? "var(--ng-accent)" : "var(--ng-muted)",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {dur === "off" ? "Off" : dur}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>

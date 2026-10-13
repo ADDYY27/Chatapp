@@ -245,9 +245,13 @@ const ChatWindow = () => {
   const [inChatSearch, setInChatSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isNudged, setIsNudged] = useState(false);
-  const [activeColor, setActiveColor] = useState("#E8A33D");
+  const [activeColor, setActiveColor] = useState(() => {
+    if (selectedUser?._id) {
+      return localStorage.getItem(`chatapp_color_${selectedUser._id}`) || "#E8A33D";
+    }
+    return "#E8A33D";
+  });
   const [activeColorFg, setActiveColorFg] = useState("#16110A");
-  const [localVoiceNotes, setLocalVoiceNotes] = useState([]);
 
   const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection, typingMap } = useChatStore();
   const isRecipientTyping = Boolean(selectedUser?._id && typingMap?.[selectedUser._id]);
@@ -260,8 +264,15 @@ const ChatWindow = () => {
   const chatContainerRef = useRef(null);
 
   useEffect(() => {
+    if (selectedUser?._id) {
+      const saved = localStorage.getItem(`chatapp_color_${selectedUser._id}`);
+      setActiveColor(saved || "#E8A33D");
+    }
+  }, [selectedUser?._id]);
+
+  useEffect(() => {
     setTimeout(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, 100);
-  }, [messages, localVoiceNotes]);
+  }, [messages]);
 
   useEffect(() => {
     if (!socket || !selectedGroup?._id) return;
@@ -286,37 +297,57 @@ const ChatWindow = () => {
         if (showGroupInfo) setShowGroupInfo(false);
       }
     });
-    return () => socket.off("groupUpdated");
+    socket.on("nudgeError", ({ message }) => {
+      toast.error(message || "Please wait before nudging again.");
+    });
+    return () => {
+      socket.off("groupUpdated");
+      socket.off("nudgeError");
+    };
   }, [socket, selectedGroup?._id]);
 
+  // Listen for incoming nudge events to trigger shake animation
+  useEffect(() => {
+    const handleIncomingNudge = (e) => {
+      const senderId = e.detail?.senderId;
+      if (selectedUser?._id && senderId === selectedUser._id) {
+        setIsNudged(true);
+        toast(`${selectedUser.fullname} nudged you! 👋`, { icon: "⚡" });
+        setTimeout(() => setIsNudged(false), 1200);
+      }
+    };
+    window.addEventListener("chatapp:nudge", handleIncomingNudge);
+    return () => window.removeEventListener("chatapp:nudge", handleIncomingNudge);
+  }, [selectedUser]);
+
   const handleNudge = () => {
+    if (!socket || !selectedUser?._id) return;
+    socket.emit("nudge", { receiverId: selectedUser._id });
     setIsNudged(true);
-    toast(`Nudged ${selectedUser?.fullname || selectedGroup?.groupName || "contact"}! 👋`, {
+    toast(`Nudged ${selectedUser?.fullname || "contact"}! 👋`, {
       icon: "⚡",
     });
     setTimeout(() => setIsNudged(false), 700);
   };
 
-  const handleSendAudio = (audioId, duration) => {
-    const newAudioNote = {
-      _id: `audio_${Date.now()}`,
-      senderId: authUser,
-      isAudio: true,
-      duration: duration || "0:14",
-      createdAt: new Date().toISOString(),
-      isRead: false,
-    };
-    setLocalVoiceNotes((prev) => [...prev, newAudioNote]);
+  const handleSendAudio = async (base64Audio, duration) => {
+    if (selectedUser) {
+      await sendMessage("", { audioUrl: base64Audio, audioDuration: duration });
+    } else if (selectedGroup) {
+      await sendGroupMessage("", { audioUrl: base64Audio, audioDuration: duration });
+    }
   };
 
   const handleColorChange = (hex, fg) => {
     setActiveColor(hex);
-    setActiveColorFg(fg);
+    if (fg) setActiveColorFg(fg);
+    if (selectedUser?._id) {
+      localStorage.setItem(`chatapp_color_${selectedUser._id}`, hex);
+    }
     toast.success(`Theme updated: ${hex}`);
   };
 
-  /* Combine real messages with any local voice notes */
-  const displayMessages = [...(messages || []), ...localVoiceNotes];
+  const displayMessages = messages || [];
 
   const filteredMessages = searchQuery.trim()
     ? displayMessages.filter((m) =>
@@ -694,6 +725,7 @@ const ChatWindow = () => {
             display: "flex",
             flexDirection: "column",
             gap: 6,
+            animation: isNudged ? "ngNudge 0.6s ease-in-out" : "none",
           }}
         >
           {/* Date pill separator 'Today' */}
@@ -816,8 +848,9 @@ const ChatWindow = () => {
           onClose={() => setShowDetails(false)}
           activeColor={activeColor}
           onColorChange={handleColorChange}
-          onViewPinned={() => {
-            toast("Navigating to pinned message: Demo day is Friday, 6 PM");
+          onViewPinned={(pinnedId) => {
+            const el = document.getElementById(`msg-${pinnedId}`);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
           }}
         />
       )}
