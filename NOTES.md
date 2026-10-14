@@ -75,20 +75,81 @@
 
 ---
 
-## 5. Environment Configuration
+## 5. Real vs. Mocked Architecture (Prompt 4)
 
-Uses the existing environment variables:
-- `PORT`: HTTP server port (default 3000)
-- `MONGO_URL`: MongoDB connection string
-- `JWT_SECRET`: Secret key for signing and verifying JWT tokens
-- `NODE_ENV`: Application environment (`development` / `production`)
+### Groups Section
+- **Real Backend Features**:
+  - Group creation (`POST /group/create` via `CreateGroup.jsx`).
+  - Group conversation listing (`GET /group/my-groups`).
+  - Group messaging & real-time socket events (`POST /group/:id/messages` and `GET /group/:id/messages`).
+  - Group unread counts (`unreadGroupCounts`).
+  - Group info & avatar updates (`GET /group/:id/info`, `PUT /group/:id/pic`).
+- **Mock Service Layer (`frontend/src/services/groupExtrasService.js`)**:
+  - **Polls**: Question, live vote percentage bars, single-vote-per-user enforcement.
+  - **Tasks**: Shared checklist with dynamic `completed/total` counter and strikethrough.
+  - **Events**: Event cards with date block, `Going` / `Maybe` attendee counts, and RSVP toggle.
+  - **Files**: Shared document & asset listing.
 
-No new environment variables or external API keys are required.
+### Meet Section
+- **Real Hardware & Browser Features**:
+  - Real camera video capture and live preview using `navigator.mediaDevices.getUserMedia({ video: true })`.
+  - Real microphone toggle using `navigator.mediaDevices.getUserMedia({ audio: true })`.
+  - Device capture error handling (graceful handling of `NotAllowedError` / permission denial).
+  - Explicit release of all `MediaStreamTrack`s on component unmount and preview stop.
+  - Meeting code format validation.
+- **Mock Service Layer (`frontend/src/services/meetService.js`)**:
+  - Drop-in rooms list (`Late night coding`, `Chill lounge`, `Frontend sync`) with stacked avatar participant previews.
+  - Upcoming scheduled meeting cards.
+- **Media Transport Limitation (TODO)**:
+  - There is no WebRTC mesh or SFU signaling server in the current backend.
+  - Per instructions, clicking "Join room" does not simulate a fake call; it displays a clear `[TODO: Media Transport]` modal explaining that signaling infrastructure is pending.
+
+### Find People Section
+- **Real Backend Features**:
+  - User search (`GET /user/search?search=...`).
+  - Online status from live Socket.IO connection.
+  - "Say hi" action immediately creates or selects conversation in `Recent Chats` and opens Chat view.
+- **Mock Service Layer (`frontend/src/services/discoveryService.js`)**:
+  - Candidate sorting by shared vibe count.
+  - Vibe tags mapping (`#gamedev`, `#lofi`, `#night owl`, `#design`).
+  - Pending friend requests list (`MOCK_PENDING_REQUESTS`) with "Accept" and "View" actions.
+
+### Profile & Settings Section
+- **Real App & Privacy Features**:
+  - Authenticated user account details (`useAuth()`).
+  - Profile avatar upload (`PUT /auth/profile/pic`).
+  - Shared CSS theme accent tokens (`--ng-accent`, `--ng-accent-fg`) updated dynamically across all 5 swatches.
+  - Message bubble border-radius tokens (`--r-bubble-mine`, `--r-bubble-theirs`) updated dynamically across all 3 styles.
+  - Read receipts privacy preference (`readReceipts` setting directly respected in `Message.jsx`).
+  - Quiet hours window calculation (`isQuietHoursActive()`).
+  - Interactive keyboard shortcuts documentation.
+- **Mock Service Layer (`frontend/src/services/settingsService.js`)**:
+  - Vibe tags selection (max 5 limit validated) and status note edits persisted to `localStorage`.
 
 ---
 
-## 6. Limitations & Notes
+## 6. Missing Backend Endpoints for Future Implementation
 
-- **Microphone Permissions**: Voice note recording requires browser microphone permissions granted via `navigator.mediaDevices.getUserMedia`.
-- **Audio Storage**: Voice recordings are stored as base64 audio data URIs matching existing user profile image storage, handled within the existing `express.json({ limit: "10mb" })` payload ceiling.
-- **Local Color Scoping**: "Their colour" swatch picker persists to `localStorage` per user (`chatapp_color_<userId>`), tinting the avatar ring and accent locally without overwriting the global user profile on the server.
+To replace the mock data-service layer with real persistence in future sprints, the following endpoints are needed:
+
+| Feature | HTTP Method | Proposed Path | Expected Payload / Response |
+| :--- | :--- | :--- | :--- |
+| **Group Polls** | `POST` | `/api/group/:id/polls` | `{ question: String, options: [String], closingDate: Date }` |
+| **Poll Voting** | `POST` | `/api/group/:id/polls/:pollId/vote` | `{ optionId: String }` -> returns updated vote tallies |
+| **Group Tasks** | `POST` / `PUT` | `/api/group/:id/tasks` | `{ title: String, completed: Boolean }` |
+| **Group Events** | `POST` | `/api/group/:id/events` | `{ title: String, date: Date, time: String }` |
+| **Event RSVP** | `POST` | `/api/group/:id/events/:eventId/rsvp` | `{ status: "going" \| "maybe" }` |
+| **Friend Requests**| `POST` / `PUT` | `/api/user/friends/request` | `{ targetUserId: ObjectId, action: "accept" \| "reject" }` |
+| **User Profile Tags**| `PUT` | `/api/auth/profile/vibes` | `{ vibeTags: [String], statusNote: String }` |
+
+---
+
+## 7. Environment Configuration
+
+Uses existing environment variables:
+- `PORT`: HTTP server port (default 3000)
+- `MONGO_URL`: MongoDB connection string
+- `JWT_SECRET`: Secret key for JWT signing
+- `NODE_ENV`: Application environment (`development` / `production`)
+
+No external third-party API keys are required.
