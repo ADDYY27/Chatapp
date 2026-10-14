@@ -239,6 +239,8 @@ const CallModal = ({ type, name, avatarSrc, onClose }) => {
 const ChatWindow = () => {
   const { socket } = useSocket();
   const { authUser } = useAuth();
+  const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection, typingMap } = useChatStore();
+
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
   const [activeCall, setActiveCall] = useState(null); // 'voice' | 'video' | null
@@ -253,7 +255,6 @@ const ChatWindow = () => {
   });
   const [activeColorFg, setActiveColorFg] = useState("#16110A");
 
-  const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection, typingMap } = useChatStore();
   const isRecipientTyping = Boolean(selectedUser?._id && typingMap?.[selectedUser._id]);
 
   const { loading: userMessagesLoading } = useGetMessages(selectedUser?._id);
