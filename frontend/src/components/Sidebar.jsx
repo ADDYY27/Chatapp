@@ -639,9 +639,25 @@ const Sidebar = () => {
 
         {/* GROUPS */}
         {activeSection === "groups" && (
-          <div>
-            <h1 style={S.sectionTitle}>Groups</h1>
-            <p style={S.sectionSub}>Your group conversations</p>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <div>
+              <h1 style={S.sectionTitle}>Groups</h1>
+              <p style={S.sectionSub}>Your circles</p>
+            </div>
+            <button
+              onClick={logout}
+              disabled={loggingOut}
+              aria-label="Logout"
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--ng-muted)", padding: 8, borderRadius: "var(--r-btn)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -795,7 +811,7 @@ const Sidebar = () => {
                   onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
                   onMouseLeave={e => e.currentTarget.style.opacity = "1"}
                 >
-                  + Create Group
+                  + New group
                 </button>
 
                 {groupsLoading ? (

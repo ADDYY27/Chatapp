@@ -4,6 +4,7 @@ import MiniNavigation from "../components/MiniNavigation";
 import SettingsView from "../components/SettingsView";
 import MeetView from "../components/MeetView";
 import FindPeopleView from "../components/FindPeopleView";
+import GroupView from "../components/GroupView";
 import useChatStore from "../store/useChatStore";
 
 const Home = () => {
@@ -27,6 +28,8 @@ const Home = () => {
         <MeetView selectedRoomId={meetRoomId} />
       ) : activeSection === "people" && !selectedUser ? (
         <FindPeopleView />
+      ) : activeSection === "groups" ? (
+        <GroupView />
       ) : (
         <ChatWindow />
       )}
