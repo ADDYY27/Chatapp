@@ -4,6 +4,7 @@ import Avatar from "./Avatar";
 import useChatStore from "../store/useChatStore";
 import axiosInstance from "../utils/axios";
 import toast from "react-hot-toast";
+import { getSettings } from "../services/settingsService";
 
 const QUICK_EMOJIS = ["❤️", "👍", "😂", "🔥", "➕"];
 const MORE_EMOJIS = ["🎉", "✨", "👀", "🚀", "💯", "😴", "💡", "👏"];
@@ -453,7 +454,9 @@ const Message = ({
             <div
               style={{
                 padding: "10px 16px",
-                borderRadius: isMine ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+                borderRadius: isMine
+                  ? "var(--r-bubble-mine, 18px 18px 4px 18px)"
+                  : "var(--r-bubble-theirs, 18px 18px 18px 4px)",
                 fontFamily: "var(--font-body)",
                 fontSize: 14,
                 lineHeight: 1.5,
@@ -731,7 +734,7 @@ const Message = ({
             >
               {isMine ? (
                 <>
-                  {message.isRead ? (
+                  {message.isRead && getSettings().readReceipts !== false ? (
                     <>
                       <svg
                         xmlns="http://www.w3.org/2000/svg"

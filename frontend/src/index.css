@@ -35,6 +35,8 @@
   --r-row:          16px;
   --r-card:         20px;
   --r-tile:         28px;
+  --r-bubble-mine:  18px 18px 4px 18px;
+  --r-bubble-theirs: 18px 18px 18px 4px;
 
   /* Typography */
   --font-heading: 'Bricolage Grotesque', system-ui, sans-serif;
