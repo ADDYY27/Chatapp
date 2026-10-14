@@ -3,10 +3,11 @@ import ChatWindow from "../components/ChatWindow";
 import MiniNavigation from "../components/MiniNavigation";
 import SettingsView from "../components/SettingsView";
 import MeetView from "../components/MeetView";
+import FindPeopleView from "../components/FindPeopleView";
 import useChatStore from "../store/useChatStore";
 
 const Home = () => {
-  const { activeSection, settingsTab, meetRoomId } = useChatStore();
+  const { activeSection, settingsTab, meetRoomId, selectedUser } = useChatStore();
 
   return (
     <div
@@ -24,6 +25,8 @@ const Home = () => {
         <SettingsView initialTab={settingsTab} />
       ) : activeSection === "meet" ? (
         <MeetView selectedRoomId={meetRoomId} />
+      ) : activeSection === "people" && !selectedUser ? (
+        <FindPeopleView />
       ) : (
         <ChatWindow />
       )}
