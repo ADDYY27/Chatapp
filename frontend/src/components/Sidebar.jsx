@@ -10,6 +10,7 @@ import useGetGroups from "../hooks/useGetGroups";
 import axiosInstance from "../utils/axios";
 import toast from "react-hot-toast";
 import Avatar from "./Avatar";
+import { getDropInRooms, getUpcomingMeets } from "../services/meetService";
 
 const ALLOWED_TYPES = ["image/jpeg","image/jpg","image/png","image/webp","image/gif"];
 const MAX_SIZE = 5 * 1024 * 1024;
@@ -301,6 +302,8 @@ const Sidebar = () => {
     setActiveSection,
     settingsTab,
     setSettingsTab,
+    meetRoomId,
+    setMeetRoomId,
     selectedUser,
     selectedGroup,
     setSelectedUser,
@@ -644,9 +647,25 @@ const Sidebar = () => {
 
         {/* MEET */}
         {activeSection === "meet" && (
-          <div>
-            <h1 style={S.sectionTitle}>Meet</h1>
-            <p style={S.sectionSub}>Video meetings</p>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+            <div>
+              <h1 style={S.sectionTitle}>Meet</h1>
+              <p style={S.sectionSub}>Calls and rooms</p>
+            </div>
+            <button
+              onClick={logout}
+              disabled={loggingOut}
+              aria-label="Logout"
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--ng-muted)", padding: 8, borderRadius: "var(--r-btn)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -869,21 +888,166 @@ const Sidebar = () => {
           </>
         )}
 
-        {/* ---- MEET ---- */}
+        {/* ---- MEET (NG3) ---- */}
         {activeSection === "meet" && (
-          <div style={{ padding: 8 }}>
-            <button style={{
-              width: "100%", padding: "10px 16px", borderRadius: "var(--r-btn)",
-              background: "var(--ng-accent)", color: "var(--ng-accent-fg)",
-              border: "none", cursor: "pointer",
-              fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14,
-            }}>
-              + Create Meet
+          <div style={{ padding: "4px 8px" }}>
+            {/* Start instant call button */}
+            <button
+              onClick={() => {
+                setMeetRoomId("instant-call");
+                toast.success("Instant call room initialized in lobby");
+              }}
+              style={{
+                width: "100%",
+                padding: "12px 16px",
+                borderRadius: "var(--r-btn)",
+                background: "var(--ng-accent)",
+                color: "var(--ng-accent-fg)",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "var(--font-body)",
+                fontWeight: 700,
+                fontSize: 14,
+                marginBottom: 20,
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            >
+              Start instant call
             </button>
-            <div style={{ textAlign: "center", padding: "40px 0" }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>📹</div>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ng-muted)" }}>No meetings yet</p>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ng-muted)", opacity: 0.6, marginTop: 4 }}>Create a meeting to get started</p>
+
+            {/* DROP-IN ROOMS */}
+            <div style={{ marginBottom: 24 }}>
+              <span style={S.label}>Drop-in Rooms</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                {getDropInRooms().map((room) => {
+                  const isCurrent = meetRoomId === room.id;
+                  const initials = room.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+                  return (
+                    <div
+                      key={room.id}
+                      onClick={() => setMeetRoomId(room.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "10px 12px",
+                        borderRadius: "var(--r-row)",
+                        background: isCurrent ? "var(--ng-hover)" : "transparent",
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isCurrent) e.currentTarget.style.background = "var(--ng-hover)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isCurrent) e.currentTarget.style.background = "transparent";
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: "var(--r-btn)",
+                            background: "var(--ng-panel)",
+                            border: "1px solid var(--ng-border)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "var(--ng-muted)",
+                          }}
+                        >
+                          {initials}
+                        </div>
+                        <div>
+                          <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ng-text)", margin: 0 }}>
+                            {room.name}
+                          </p>
+                          <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ng-muted)", margin: 0 }}>
+                            {room.count > 0 ? `${room.count} inside` : "Empty. Be the first"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Stacked participant avatars */}
+                      {room.participants?.length > 0 && (
+                        <div style={{ display: "flex", alignItems: "center" }}>
+                          {room.participants.slice(0, 3).map((p, idx) => (
+                            <div
+                              key={p.name}
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: "50%",
+                                background: p.color,
+                                color: "#0E1311",
+                                fontSize: 9,
+                                fontWeight: 700,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                border: "2px solid var(--ng-panel)",
+                                marginLeft: idx > 0 ? -6 : 0,
+                              }}
+                            >
+                              {p.initials}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* UPCOMING */}
+            <div>
+              <span style={S.label}>Upcoming</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                {getUpcomingMeets().map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderRadius: "var(--r-row)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "var(--r-btn)",
+                        background: "var(--ng-hover)",
+                        border: "1px solid var(--ng-border)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "var(--ng-accent)",
+                      }}
+                    >
+                      {item.timeBadge}
+                    </div>
+                    <div>
+                      <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ng-text)", margin: 0 }}>
+                        {item.title}
+                      </p>
+                      <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ng-muted)", margin: 0 }}>
+                        {item.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

@@ -12,6 +12,8 @@ const useChatStore = create((set, get) => ({
     activeSection: "chats",
     settingsTab: "profile",
     setSettingsTab: (tab) => set({ settingsTab: tab }),
+    meetRoomId: "late-night-coding",
+    setMeetRoomId: (id) => set({ meetRoomId: id }),
 
     messages: [],
     onlineUsers: [],

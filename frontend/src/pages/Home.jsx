@@ -2,10 +2,11 @@ import Sidebar from "../components/Sidebar";
 import ChatWindow from "../components/ChatWindow";
 import MiniNavigation from "../components/MiniNavigation";
 import SettingsView from "../components/SettingsView";
+import MeetView from "../components/MeetView";
 import useChatStore from "../store/useChatStore";
 
 const Home = () => {
-  const { activeSection, settingsTab } = useChatStore();
+  const { activeSection, settingsTab, meetRoomId } = useChatStore();
 
   return (
     <div
@@ -21,6 +22,8 @@ const Home = () => {
       <Sidebar />
       {activeSection === "settings" || activeSection === "profile" ? (
         <SettingsView initialTab={settingsTab} />
+      ) : activeSection === "meet" ? (
+        <MeetView selectedRoomId={meetRoomId} />
       ) : (
         <ChatWindow />
       )}
