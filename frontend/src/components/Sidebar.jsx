@@ -298,6 +298,9 @@ const Sidebar = () => {
 
   const {
     activeSection,
+    setActiveSection,
+    settingsTab,
+    setSettingsTab,
     selectedUser,
     selectedGroup,
     setSelectedUser,
@@ -885,19 +888,54 @@ const Sidebar = () => {
           </div>
         )}
 
-        {/* ---- SETTINGS ---- */}
-        {activeSection === "settings" && (
-          <div style={{ padding: 8 }}>
-            <div style={{ background: "var(--ng-hover)", borderRadius: "var(--r-card)", padding: 16, border: "1px solid var(--ng-border)" }}>
-              <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 14, color: "var(--ng-text)", margin: "0 0 6px" }}>Settings</p>
-              <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ng-muted)", margin: 0 }}>Settings will be available here.</p>
-            </div>
+        {/* ---- SETTINGS / PROFILE SUBNAV (NG5) ---- */}
+        {(activeSection === "settings" || activeSection === "profile") && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, padding: "8px 6px" }}>
+            {[
+              { id: "profile", label: "Profile" },
+              { id: "appearance", label: "Appearance" },
+              { id: "notifications", label: "Notifications" },
+              { id: "privacy", label: "Privacy" },
+              { id: "shortcuts", label: "Shortcuts" },
+            ].map((tab) => {
+              const isCurrent = settingsTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setSettingsTab(tab.id);
+                    if (activeSection !== "settings" && activeSection !== "profile") {
+                      setActiveSection("settings");
+                    }
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 14px",
+                    borderRadius: "var(--r-row)",
+                    border: "none",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-body)",
+                    fontSize: 14,
+                    fontWeight: isCurrent ? 600 : 500,
+                    backgroundColor: isCurrent ? "var(--ng-hover)" : "transparent",
+                    color: isCurrent ? "var(--ng-text)" : "var(--ng-muted)",
+                    textAlign: "left",
+                    transition: "background 0.15s, color 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isCurrent) e.currentTarget.style.backgroundColor = "var(--ng-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isCurrent) e.currentTarget.style.backgroundColor = "transparent";
+                  }}
+                >
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
-        )}
-
-        {/* ---- PROFILE ---- */}
-        {activeSection === "profile" && (
-          <ProfilePicSection authUser={authUser} setAuthUser={setAuthUser} />
         )}
       </div>
 

@@ -1,8 +1,12 @@
 import Sidebar from "../components/Sidebar";
 import ChatWindow from "../components/ChatWindow";
 import MiniNavigation from "../components/MiniNavigation";
+import SettingsView from "../components/SettingsView";
+import useChatStore from "../store/useChatStore";
 
 const Home = () => {
+  const { activeSection, settingsTab } = useChatStore();
+
   return (
     <div
       style={{
@@ -15,7 +19,11 @@ const Home = () => {
     >
       <MiniNavigation />
       <Sidebar />
-      <ChatWindow />
+      {activeSection === "settings" || activeSection === "profile" ? (
+        <SettingsView initialTab={settingsTab} />
+      ) : (
+        <ChatWindow />
+      )}
     </div>
   );
 };

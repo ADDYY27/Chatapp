@@ -10,6 +10,8 @@ const useChatStore = create((set, get) => ({
             replyingTo: null,
         }),
     activeSection: "chats",
+    settingsTab: "profile",
+    setSettingsTab: (tab) => set({ settingsTab: tab }),
 
     messages: [],
     onlineUsers: [],
