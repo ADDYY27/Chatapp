@@ -233,6 +233,25 @@ const CallModal = ({ type, name, avatarSrc, onClose }) => {
   );
 };
 
+const formatRelativeTime = (timestamp) => {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffSec < 0 || diffSec < 60) return "just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return "yesterday";
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+};
+
 /* ============================================================
    ChatWindow Component
    ============================================================ */
@@ -530,10 +549,20 @@ const ChatWindow = () => {
                   {isOnline ? (
                     <>
                       <span style={{ color: "var(--ng-online)", fontWeight: 500 }}>Online</span>
-                      <span style={{ color: "var(--ng-muted)" }}> · shipping the sidebar</span>
+                      {selectedUser?.statusNote ? (
+                        <span style={{ color: "var(--ng-muted)" }}> · {selectedUser.statusNote}</span>
+                      ) : null}
                     </>
                   ) : (
-                    <span style={{ color: "var(--ng-muted)" }}>Offline · last seen 2h ago</span>
+                    (() => {
+                      const showLastSeen = selectedUser?.showLastSeen !== false;
+                      const relTime = showLastSeen && selectedUser?.lastSeen ? formatRelativeTime(selectedUser.lastSeen) : "";
+                      return (
+                        <span style={{ color: "var(--ng-muted)" }}>
+                          Offline{relTime ? ` · last seen ${relTime}` : ""}
+                        </span>
+                      );
+                    })()
                   )}
                 </p>
               )}
