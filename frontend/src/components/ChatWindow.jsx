@@ -258,10 +258,11 @@ const formatRelativeTime = (timestamp) => {
 const ChatWindow = () => {
   const { socket } = useSocket();
   const { authUser } = useAuth();
-  const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection, typingMap } = useChatStore();
+  const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection, typingMap, isDetailsOpen, setIsDetailsOpen } = useChatStore();
 
   const [showGroupInfo, setShowGroupInfo] = useState(false);
-  const [showDetails, setShowDetails] = useState(true);
+  const showDetails = isDetailsOpen;
+  const setShowDetails = setIsDetailsOpen;
   const [activeCall, setActiveCall] = useState(null); // 'voice' | 'video' | null
   const [inChatSearch, setInChatSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");

@@ -249,6 +249,12 @@ clearGroupUnread: (groupId) =>
             }),
         }));
     },
+
+    isDetailsOpen: true,
+    setIsDetailsOpen: (open) =>
+        set((state) => ({
+            isDetailsOpen: typeof open === "function" ? open(state.isDetailsOpen) : open,
+        })),
 }));
 
 export default useChatStore;
