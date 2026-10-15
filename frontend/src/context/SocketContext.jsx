@@ -26,10 +26,14 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (authUser) {
       const newSocket = io(SERVER_URL || "/", {
-        query: { userId: authUser._id },
+        withCredentials: true,
       });
 
       const typingTimeouts = {};
+
+      newSocket.on("connect_error", (err) => {
+        console.warn("Socket connection error:", err.message);
+      });
 
       newSocket.on("getOnlineUsers", (users) => {
         setOnlineUsers(users);

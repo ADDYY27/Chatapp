@@ -1,6 +1,9 @@
 import { Server } from 'socket.io';
 import http from 'http';
 import express from 'express';
+import jwt from 'jsonwebtoken';
+import cookie from 'cookie';
+import Conversation from '../Models/conversationModels.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -12,6 +15,7 @@ const io = new Server(server, {
             'http://localhost:5174',
             'http://localhost:5175',
             'http://localhost:5176',
+            'http://localhost:8080',
             'https://chatapp-production-856d.up.railway.app',
             'https://chatapp-ivory-eta.vercel.app',
         ],
@@ -20,41 +24,85 @@ const io = new Server(server, {
     }
 });
 
-export const getReciverSocketId = (receverId) => {
-    return userSocketmap[receverId];
-};
-
+// Map of userId -> Set of socket IDs for multi-tab support
 const userSocketmap = {};
 const nudgeRateLimitMap = new Map();
 
-io.on('connection', (socket) => {
+export const getReciverSocketId = (receiverId) => {
+    if (!receiverId) return null;
+    const sockets = userSocketmap[receiverId];
+    if (!sockets || sockets.size === 0) return null;
+    return Array.from(sockets);
+};
 
-    const userId = socket.handshake.query.userId;
+// ================= HANDSHAKE AUTHENTICATION =================
+io.use((socket, next) => {
+    try {
+        const rawCookies = socket.handshake.headers.cookie;
+        const parsedCookies = rawCookies ? cookie.parse(rawCookies) : {};
+        const token = parsedCookies.jwt || socket.handshake.auth?.token;
 
-    if (userId && userId !== "undefined") {
-        userSocketmap[userId] = socket.id;
+        if (!token) {
+            return next(new Error("Authentication error: Token required"));
+        }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (!decoded || !decoded.userId) {
+            return next(new Error("Authentication error: Invalid token"));
+        }
+
+        // Attach verified identity to the socket instance
+        socket.userId = decoded.userId.toString();
+        next();
+    } catch (err) {
+        return next(new Error("Authentication error: Invalid or expired token"));
     }
+});
+
+io.on('connection', (socket) => {
+    const userId = socket.userId;
+
+    if (!userSocketmap[userId]) {
+        userSocketmap[userId] = new Set();
+    }
+    userSocketmap[userId].add(socket.id);
+    socket.join(`user:${userId}`);
 
     io.emit("getOnlineUsers", Object.keys(userSocketmap));
 
-
     // ================= GROUP ROOMS =================
+    socket.on("joinGroup", async (groupId) => {
+        try {
+            if (!groupId) return;
+            const group = await Conversation.findOne({
+                _id: groupId,
+                isGroup: true,
+                participants: userId
+            });
 
-   socket.on("joinGroup", (groupId) => {
-    console.log("USER JOINED GROUP:", groupId);
+            if (!group) {
+                console.warn(`Unauthorized joinGroup attempt by ${userId} for group ${groupId}`);
+                return;
+            }
 
-    socket.join(`group:${groupId}`);
-});
+            socket.join(`group:${groupId}`);
+        } catch (err) {
+            console.error("Error joining group room:", err);
+        }
+    });
+
     socket.on("leaveGroup", (groupId) => {
-        socket.leave(`group:${groupId}`);
+        if (groupId) {
+            socket.leave(`group:${groupId}`);
+        }
     });
 
     // ================= TYPING INDICATORS =================
     socket.on("typing", ({ receiverId, conversationId }) => {
         if (!userId || !receiverId) return;
-        const receiverSocketId = getReciverSocketId(receiverId);
-        if (receiverSocketId) {
-            io.to(receiverSocketId).emit("userTyping", {
+        const receiverSocketIds = getReciverSocketId(receiverId);
+        if (receiverSocketIds) {
+            io.to(receiverSocketIds).emit("userTyping", {
                 senderId: userId,
                 conversationId
             });
@@ -63,15 +111,14 @@ io.on('connection', (socket) => {
 
     socket.on("stopTyping", ({ receiverId, conversationId }) => {
         if (!userId || !receiverId) return;
-        const receiverSocketId = getReciverSocketId(receiverId);
-        if (receiverSocketId) {
-            io.to(receiverSocketId).emit("userStoppedTyping", {
+        const receiverSocketIds = getReciverSocketId(receiverId);
+        if (receiverSocketIds) {
+            io.to(receiverSocketIds).emit("userStoppedTyping", {
                 senderId: userId,
                 conversationId
             });
         }
     });
-
 
     // ================= NUDGE =================
     socket.on("nudge", ({ receiverId }) => {
@@ -85,27 +132,24 @@ io.on('connection', (socket) => {
         }
         nudgeRateLimitMap.set(nudgeKey, now);
 
-        const receiverSocketId = getReciverSocketId(receiverId);
-        if (receiverSocketId) {
-            io.to(receiverSocketId).emit("nudge", {
+        const receiverSocketIds = getReciverSocketId(receiverId);
+        if (receiverSocketIds) {
+            io.to(receiverSocketIds).emit("nudge", {
                 senderId: userId
             });
         }
     });
 
     // ================= DISCONNECT =================
-
-    socket.on('disconnect', () => {
-        if (userSocketmap[userId] === socket.id) {
-            delete userSocketmap[userId];
-
-            io.emit(
-                "getOnlineUsers",
-                Object.keys(userSocketmap)
-            );
+    socket.on('disconnect', async () => {
+        if (userSocketmap[userId]) {
+            userSocketmap[userId].delete(socket.id);
+            if (userSocketmap[userId].size === 0) {
+                delete userSocketmap[userId];
+                io.emit("getOnlineUsers", Object.keys(userSocketmap));
+            }
         }
     });
-
 });
 
 export { app, io, server };
