@@ -36,6 +36,21 @@ const SettingsView = ({ initialTab = "profile" }) => {
   }, []);
 
   useEffect(() => {
+    if (authUser) {
+      const updates = {};
+      if (authUser.showLastSeen !== undefined && authUser.showLastSeen !== settings.lastSeen) {
+        updates.lastSeen = authUser.showLastSeen;
+      }
+      if (authUser.readReceipts !== undefined && authUser.readReceipts !== settings.readReceipts) {
+        updates.readReceipts = authUser.readReceipts;
+      }
+      if (Object.keys(updates).length > 0) {
+        updateSettings(updates);
+      }
+    }
+  }, [authUser]);
+
+  useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
 
@@ -49,10 +64,24 @@ const SettingsView = ({ initialTab = "profile" }) => {
     toast.success(`Message bubble style: ${BUBBLE_STYLES[styleKey]?.label}`);
   };
 
-  const handleToggle = (key) => {
+  const handleToggle = async (key) => {
     const updated = !settings[key];
     updateSettings({ [key]: updated });
     toast.success(`${key.replace(/([A-Z])/g, " $1")} ${updated ? "enabled" : "disabled"}`);
+
+    if (key === "lastSeen" || key === "readReceipts") {
+      try {
+        const payload = {};
+        if (key === "lastSeen") payload.showLastSeen = updated;
+        if (key === "readReceipts") payload.readReceipts = updated;
+        const { data } = await axiosInstance.put("/auth/privacy", payload);
+        if (data.success && data.user && setAuthUser) {
+          setAuthUser(data.user);
+        }
+      } catch (err) {
+        console.error("Failed to sync privacy setting to backend:", err);
+      }
+    }
   };
 
   const handleQuietHoursToggle = () => {

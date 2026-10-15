@@ -1,5 +1,5 @@
 import express from "express"
-import { userRegister, userLogin, userLogOut, updateProfilePic, updateProfile } from "../routControlers/userroutControler.js";
+import { userRegister, userLogin, userLogOut, updateProfilePic, updateProfile, updatePrivacySettings } from "../routControlers/userroutControler.js";
 import isLogin from "../middleware/isLogin.js";
 import { authLimiter } from "../middleware/rateLimiter.js";
 
@@ -10,5 +10,6 @@ router.post('/login', authLimiter, userLogin);
 router.post('/logout', userLogOut);
 router.put('/profile/pic', isLogin, updateProfilePic);
 router.put('/profile', isLogin, updateProfile);
+router.put('/privacy', isLogin, updatePrivacySettings);
 
 export default router

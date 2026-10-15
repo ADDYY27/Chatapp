@@ -254,3 +254,59 @@ export const updateProfile = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
+export const updatePrivacySettings = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { showLastSeen, readReceipts } = req.body;
+        const updateData = {};
+
+        if (showLastSeen !== undefined) {
+            if (typeof showLastSeen !== 'boolean') {
+                return res.status(400).json({ success: false, message: "showLastSeen must be a boolean" });
+            }
+            updateData.showLastSeen = showLastSeen;
+        }
+
+        if (readReceipts !== undefined) {
+            if (typeof readReceipts !== 'boolean') {
+                return res.status(400).json({ success: false, message: "readReceipts must be a boolean" });
+            }
+            updateData.readReceipts = readReceipts;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ success: false, message: "No valid privacy fields provided" });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        ).select("-password");
+
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Privacy settings updated successfully",
+            user: {
+                _id: updatedUser._id,
+                fullname: updatedUser.fullname,
+                username: updatedUser.username,
+                email: updatedUser.email,
+                profilepic: updatedUser.profilepic,
+                statusNote: updatedUser.statusNote || "",
+                vibeTags: updatedUser.vibeTags || [],
+                showLastSeen: updatedUser.showLastSeen !== false,
+                readReceipts: updatedUser.readReceipts !== false,
+                lastSeen: updatedUser.showLastSeen !== false ? (updatedUser.lastSeen || null) : null,
+            }
+        });
+    } catch (error) {
+        console.error("updatePrivacySettings error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

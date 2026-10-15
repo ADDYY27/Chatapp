@@ -6,7 +6,7 @@ export const getUserBySearch=async(req,res)=>{
 try {
     const search = req.query.search || '';
     const currentUserID = req.user._id;
-   const user = await User.find({
+   const users = await User.find({
     $and: [
         {
             $or: [
@@ -18,8 +18,14 @@ try {
             _id: { $ne: currentUserID }
         }
     ]
-}).select("fullname username profilepic");
-    res.status(200).send(user)
+}).select("fullname username profilepic statusNote lastSeen vibeTags showLastSeen").lean();
+
+    const sanitizedUsers = users.map(u => ({
+        ...u,
+        lastSeen: u.showLastSeen !== false ? u.lastSeen : null
+    }));
+
+    res.status(200).send(sanitizedUsers);
 
 } catch (error) {
     res.status(500).send({
@@ -84,6 +90,7 @@ export const getCorrentChatters = async (req, res) => {
 
                 return {
                     ...u,
+                    lastSeen: u.showLastSeen !== false ? u.lastSeen : null,
                     unreadCount,
                     lastMessage: lastMsg ? lastMsg.message : "",
                     lastMessageTime: lastMsg ? lastMsg.createdAt : conv?.updatedAt

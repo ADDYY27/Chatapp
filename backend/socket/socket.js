@@ -4,6 +4,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
 import Conversation from '../Models/conversationModels.js';
+import User from '../Models/userModels.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -147,6 +148,14 @@ io.on('connection', (socket) => {
             if (userSocketmap[userId].size === 0) {
                 delete userSocketmap[userId];
                 io.emit("getOnlineUsers", Object.keys(userSocketmap));
+
+                // Persist lastSeen in database when user's final active socket disconnects
+                try {
+                    const now = new Date();
+                    await User.findByIdAndUpdate(userId, { lastSeen: now });
+                } catch (err) {
+                    console.error("Failed to update lastSeen on disconnect:", err);
+                }
             }
         }
     });
