@@ -23,7 +23,7 @@ const SettingsView = ({ initialTab = "profile" }) => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editFullname, setEditFullname] = useState(authUser?.fullname || "");
   const [editStatusNote, setEditStatusNote] = useState(
-    settings.statusNote || "building ChatApp"
+    authUser?.statusNote !== undefined ? authUser.statusNote : (settings.statusNote || "")
   );
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -75,14 +75,14 @@ const SettingsView = ({ initialTab = "profile" }) => {
     });
   };
 
-  const handleAddVibeTag = () => {
+  const handleAddVibeTag = async () => {
     const trimmed = newVibeText.trim().replace(/^#+/, "");
     if (!trimmed) {
       setShowAddVibe(false);
       return;
     }
     const formatted = `#${trimmed.toLowerCase()}`;
-    const currentTags = settings.vibeTags || [];
+    const currentTags = authUser?.vibeTags || settings.vibeTags || [];
 
     if (currentTags.length >= 5) {
       toast.error("You can choose up to 5 vibe tags maximum");
@@ -94,35 +94,62 @@ const SettingsView = ({ initialTab = "profile" }) => {
     }
 
     const updatedTags = [...currentTags, formatted];
-    updateSettings({ vibeTags: updatedTags });
-    setNewVibeText("");
-    setShowAddVibe(false);
-    toast.success(`Added ${formatted}`);
+    try {
+      const { data } = await axiosInstance.put("/auth/profile", { vibeTags: updatedTags });
+      if (data.success && data.user) {
+        if (setAuthUser) setAuthUser(data.user);
+        updateSettings({ vibeTags: data.user.vibeTags });
+        setNewVibeText("");
+        setShowAddVibe(false);
+        toast.success(`Added ${formatted}`);
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to add vibe tag");
+    }
   };
 
-  const handleRemoveVibeTag = (tagToRemove) => {
-    const updatedTags = (settings.vibeTags || []).filter((t) => t !== tagToRemove);
-    updateSettings({ vibeTags: updatedTags });
+  const handleRemoveVibeTag = async (tagToRemove) => {
+    const currentTags = authUser?.vibeTags || settings.vibeTags || [];
+    const updatedTags = currentTags.filter((t) => t !== tagToRemove);
+    try {
+      const { data } = await axiosInstance.put("/auth/profile", { vibeTags: updatedTags });
+      if (data.success && data.user) {
+        if (setAuthUser) setAuthUser(data.user);
+        updateSettings({ vibeTags: data.user.vibeTags });
+        toast.success(`Removed ${tagToRemove}`);
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to remove vibe tag");
+    }
   };
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
-    if (!editFullname.trim()) {
+    const trimmedName = editFullname.trim();
+    if (!trimmedName) {
       toast.error("Full name cannot be empty");
+      return;
+    }
+    const trimmedStatus = editStatusNote.trim();
+    if (trimmedStatus.length > 40) {
+      toast.error("Status note cannot exceed 40 characters");
       return;
     }
 
     setSavingProfile(true);
     try {
-      updateSettings({ statusNote: editStatusNote });
-      // Update authUser state
-      if (setAuthUser && authUser) {
-        setAuthUser({ ...authUser, fullname: editFullname });
+      const { data } = await axiosInstance.put("/auth/profile", {
+        fullname: trimmedName,
+        statusNote: trimmedStatus,
+      });
+      if (data.success && data.user) {
+        if (setAuthUser) setAuthUser(data.user);
+        updateSettings({ statusNote: data.user.statusNote });
+        setIsEditingProfile(false);
+        toast.success("Profile updated successfully!");
       }
-      setIsEditingProfile(false);
-      toast.success("Profile updated successfully!");
-    } catch {
-      toast.error("Failed to update profile");
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to update profile");
     } finally {
       setSavingProfile(false);
     }
@@ -193,7 +220,7 @@ const SettingsView = ({ initialTab = "profile" }) => {
                     <span style={{ color: "var(--ng-online)" }}>●</span>
                     <span style={{ fontWeight: 600, color: "var(--ng-online)" }}>Active</span>
                     <span>·</span>
-                    <span>{settings.statusNote || "building ChatApp"}</span>
+                    <span>{authUser?.statusNote || settings.statusNote || "Exploring Night Garden"}</span>
                   </p>
                 </div>
               </div>
@@ -202,7 +229,7 @@ const SettingsView = ({ initialTab = "profile" }) => {
               <button
                 onClick={() => {
                   setEditFullname(authUser?.fullname || "");
-                  setEditStatusNote(settings.statusNote || "building ChatApp");
+                  setEditStatusNote(authUser?.statusNote !== undefined ? authUser.statusNote : (settings.statusNote || ""));
                   setIsEditingProfile(true);
                 }}
                 style={{
@@ -232,7 +259,7 @@ const SettingsView = ({ initialTab = "profile" }) => {
 
             {/* Vibe Tags Section */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-              {(settings.vibeTags || []).map((tag) => (
+              {((authUser?.vibeTags && authUser.vibeTags.length > 0) ? authUser.vibeTags : (settings.vibeTags || [])).map((tag) => (
                 <span
                   key={tag}
                   style={{
