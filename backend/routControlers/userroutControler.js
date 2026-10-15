@@ -60,6 +60,11 @@ export const userRegister = async (req, res) => {
             username: newUser.username,
             profilepic: newUser.profilepic,
             email: newUser.email,
+            statusNote: newUser.statusNote,
+            vibeTags: newUser.vibeTags,
+            showLastSeen: newUser.showLastSeen,
+            readReceipts: newUser.readReceipts,
+            lastSeen: newUser.lastSeen,
         });
 
     } catch (error) {
@@ -84,6 +89,11 @@ export const userLogin = async (req, res) => {
             username: user.username,
             profilepic: user.profilepic,
             email: user.email,
+            statusNote: user.statusNote || "",
+            vibeTags: user.vibeTags || [],
+            showLastSeen: user.showLastSeen !== false,
+            readReceipts: user.readReceipts !== false,
+            lastSeen: user.lastSeen || null,
             message: "Successfully LogIn"
         })
 
@@ -141,6 +151,11 @@ export const updateProfilePic = async (req, res) => {
                 username: updated.username,
                 profilepic: updated.profilepic,
                 email: updated.email,
+                statusNote: updated.statusNote || "",
+                vibeTags: updated.vibeTags || [],
+                showLastSeen: updated.showLastSeen !== false,
+                readReceipts: updated.readReceipts !== false,
+                lastSeen: updated.lastSeen || null,
             }
         });
 
@@ -149,3 +164,93 @@ export const updateProfilePic = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 }
+
+export const updateProfile = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { fullname, statusNote, vibeTags } = req.body;
+
+        const updateData = {};
+
+        // Validate and allowlist 'fullname'
+        if (fullname !== undefined) {
+            if (typeof fullname !== 'string' || !fullname.trim()) {
+                return res.status(400).json({ success: false, message: "Full name is required and cannot be empty" });
+            }
+            if (fullname.trim().length > 60) {
+                return res.status(400).json({ success: false, message: "Full name cannot exceed 60 characters" });
+            }
+            updateData.fullname = fullname.trim();
+        }
+
+        // Validate and allowlist 'statusNote'
+        if (statusNote !== undefined) {
+            if (typeof statusNote !== 'string') {
+                return res.status(400).json({ success: false, message: "Status note must be a string" });
+            }
+            const trimmedNote = statusNote.trim();
+            if (trimmedNote.length > 40) {
+                return res.status(400).json({ success: false, message: "Status note cannot exceed 40 characters" });
+            }
+            updateData.statusNote = trimmedNote;
+        }
+
+        // Validate and allowlist 'vibeTags'
+        if (vibeTags !== undefined) {
+            if (!Array.isArray(vibeTags)) {
+                return res.status(400).json({ success: false, message: "vibeTags must be an array" });
+            }
+            const normalizedTags = [];
+            for (const tag of vibeTags) {
+                if (typeof tag !== 'string') continue;
+                let clean = tag.trim();
+                if (!clean) continue;
+                if (!clean.startsWith('#')) clean = `#${clean}`;
+                if (clean.length > 25) {
+                    return res.status(400).json({ success: false, message: "Each vibe tag cannot exceed 25 characters" });
+                }
+                if (!normalizedTags.includes(clean)) {
+                    normalizedTags.push(clean);
+                }
+            }
+            if (normalizedTags.length > 5) {
+                return res.status(400).json({ success: false, message: "You can select a maximum of 5 vibe tags" });
+            }
+            updateData.vibeTags = normalizedTags;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            return res.status(400).json({ success: false, message: "No valid fields provided for update" });
+        }
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        ).select("-password");
+
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            user: {
+                _id: updatedUser._id,
+                fullname: updatedUser.fullname,
+                username: updatedUser.username,
+                email: updatedUser.email,
+                profilepic: updatedUser.profilepic,
+                statusNote: updatedUser.statusNote || "",
+                vibeTags: updatedUser.vibeTags || [],
+                showLastSeen: updatedUser.showLastSeen !== false,
+                readReceipts: updatedUser.readReceipts !== false,
+                lastSeen: updatedUser.lastSeen || null,
+            }
+        });
+    } catch (error) {
+        console.error("updateProfile error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};

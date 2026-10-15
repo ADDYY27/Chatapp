@@ -29,6 +29,33 @@ const userSchema = mongoose.Schema({
         type: String,
         required: true,
         default:""
+    },
+    statusNote:{
+        type: String,
+        maxlength: 40,
+        default: ""
+    },
+    lastSeen:{
+        type: Date,
+        default: null
+    },
+    vibeTags:{
+        type: [String],
+        default: [],
+        validate: {
+            validator: function(tags) {
+                return !tags || (Array.isArray(tags) && tags.length <= 5);
+            },
+            message: "Cannot exceed 5 vibe tags"
+        }
+    },
+    readReceipts:{
+        type: Boolean,
+        default: true
+    },
+    showLastSeen:{
+        type: Boolean,
+        default: true
     }
 },{timestamps:true});
 
