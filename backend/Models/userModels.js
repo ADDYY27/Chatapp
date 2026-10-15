@@ -27,7 +27,6 @@ const userSchema = mongoose.Schema({
     },
     profilepic:{
         type: String,
-        required: true,
         default:""
     },
     statusNote:{
