@@ -1,27 +1,40 @@
-import jwt from 'jsonwebtoken'
-import User from '../Models/userModels.js'
+import jwt from 'jsonwebtoken';
+import User from '../Models/userModels.js';
 
 const isLogin = async (req, res, next) => {
     try {
-        const token = req.cookies.jwt;
-        //  console.log("Cookies:", req.cookies);
-        // console.log("Headers:", req.headers.cookie); 
-        
-        if (!token) return res.status(401).send({ success: false, message: "User Unauthorize" });
-        
-        const decode = jwt.verify(token, process.env.JWT_SECRET);
-        if (!decode) return res.status(401).send({ success: false, message: "User Unauthorize - Invalid Token" });
-        
+        const token = req.cookies?.jwt;
+
+        if (!token) {
+            return res.status(401).send({ success: false, message: "User Unauthorized" });
+        }
+
+        let decode;
+        try {
+            decode = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (jwtError) {
+            if (jwtError.name === "TokenExpiredError") {
+                return res.status(401).send({ success: false, message: "User Unauthorized - Token expired" });
+            }
+            return res.status(401).send({ success: false, message: "User Unauthorized - Invalid Token" });
+        }
+
+        if (!decode || !decode.userId) {
+            return res.status(401).send({ success: false, message: "User Unauthorized - Invalid Token" });
+        }
+
         const user = await User.findById(decode.userId).select("-password");
-        if (!user) return res.status(401).send({ success: false, message: "User not found" });
-        
+        if (!user) {
+            return res.status(401).send({ success: false, message: "User not found" });
+        }
+
         req.user = user;
         next();
 
     } catch (error) {
-        console.log(`error in isLogin middleware ${error.message}`);
-        res.status(500).send({ success: false, message: error.message });
+        console.error(`Error in isLogin middleware: ${error.message}`);
+        res.status(500).send({ success: false, message: "Internal server error" });
     }
-}
+};
 
 export default isLogin;
