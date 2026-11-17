@@ -2,39 +2,54 @@ import Conversation from "../Models/conversationModels.js";
 import User from "../Models/userModels.js";
 import Message from "../Models/messageSchema.js";
 
-export const getUserBySearch=async(req,res)=>{
-try {
-    const search = req.query.search || '';
-    const currentUserID = req.user._id;
-   const users = await User.find({
-    $and: [
-        {
-            $or: [
-                { username: { $regex: search, $options: "i" } },
-                { fullname: { $regex: search, $options: "i" } }
-            ]
-        },
-        {
-            _id: { $ne: currentUserID }
+// Escape regex metacharacters to prevent ReDoS and regex injection
+const escapeRegex = (string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+export const getUserBySearch = async (req, res) => {
+    try {
+        const rawSearch = typeof req.query.search === 'string' ? req.query.search : '';
+        const currentUserID = req.user._id;
+
+        // Limit search query length to 100 characters to prevent expensive scanning or abuse
+        if (rawSearch.length > 100) {
+            return res.status(200).send([]);
         }
-    ]
-}).select("fullname username profilepic statusNote lastSeen vibeTags showLastSeen").lean();
 
-    const sanitizedUsers = users.map(u => ({
-        ...u,
-        lastSeen: u.showLastSeen !== false ? u.lastSeen : null
-    }));
+        const trimmedSearch = rawSearch.trim();
+        const escapedSearch = escapeRegex(trimmedSearch);
 
-    res.status(200).send(sanitizedUsers);
+        const query = {
+            _id: { $ne: currentUserID }
+        };
 
-} catch (error) {
-    res.status(500).send({
-        success: false,
-        message: error
-    })
-    console.log(error);
-}
-}
+        if (escapedSearch) {
+            query.$or = [
+                { username: { $regex: escapedSearch, $options: "i" } },
+                { fullname: { $regex: escapedSearch, $options: "i" } }
+            ];
+        }
+
+        const users = await User.find(query)
+            .select("fullname username profilepic statusNote lastSeen vibeTags showLastSeen")
+            .lean();
+
+        const sanitizedUsers = users.map(u => ({
+            ...u,
+            lastSeen: u.showLastSeen !== false ? u.lastSeen : null
+        }));
+
+        res.status(200).send(sanitizedUsers);
+
+    } catch (error) {
+        console.error(`Error in getUserBySearch: ${error.message}`);
+        res.status(500).send({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
 export const getCorrentChatters = async (req, res) => {
     try {
         const currentUserID = req.user._id;
