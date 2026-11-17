@@ -112,6 +112,9 @@ const messageSchema = mongoose.Schema({
 
 },{timestamps:true})
 
+// TTL index for asynchronous deletion of disappearing messages after expiration
+messageSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
 const Message = mongoose.model("Message",messageSchema)
 
 export default Message;
