@@ -9,7 +9,8 @@ import {
     updateGroupPic,
     updateGroupName,
     clearGroup,
-    getGroupInfo
+    getGroupInfo,
+    addMember
 } from "../routControlers/groupControler.js";
 
 const router = express.Router();
@@ -22,5 +23,7 @@ router.put("/:id/pic", isLogin, updateGroupPic);
 router.put("/:id/name", isLogin, updateGroupName);
 router.delete("/:id/clear", isLogin, clearGroup);
 router.get("/:id/info", isLogin, getGroupInfo);
+router.post("/:id/add-member", isLogin, addMember);
+router.post("/:id/members", isLogin, addMember);
 
 export default router;
