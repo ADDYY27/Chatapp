@@ -12,6 +12,7 @@ import ChatDetailsSidebar from "./ChatDetailsSidebar";
 import { useAuth } from "../context/AuthContext";
 import Avatar from "./Avatar";
 import toast from "react-hot-toast";
+import { useCall } from "../context/CallContext";
 
 /* ============================================================
    Group Info Modal (for group chats)
@@ -155,83 +156,7 @@ const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
   );
 };
 
-/* ============================================================
-   Call Modal (Voice & Video call simulation)
-   ============================================================ */
-const CallModal = ({ type, name, avatarSrc, onClose }) => {
-  return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 70,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        background: "rgba(10, 14, 12, 0.85)", backdropFilter: "blur(8px)",
-      }}
-    >
-      <div
-        style={{
-          background: "var(--ng-panel)",
-          border: "1px solid var(--ng-border)",
-          borderRadius: "var(--r-card)",
-          padding: "36px 32px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 16,
-          width: 320,
-          boxShadow: "0 24px 64px rgba(0,0,0,0.6)",
-        }}
-      >
-        <div style={{ position: "relative" }}>
-          <Avatar src={avatarSrc} name={name} size={92} ring={true} ringColor="var(--ng-accent)" />
-          <span
-            style={{
-              position: "absolute", inset: -8, borderRadius: "50%",
-              border: "2px solid var(--ng-accent)", opacity: 0.4,
-              animation: "ngPulseSlow 1.5s infinite ease-in-out",
-            }}
-          />
-        </div>
 
-        <div style={{ textAlign: "center" }}>
-          <h2 style={{ fontFamily: "var(--font-heading)", fontSize: 20, color: "var(--ng-text)", margin: "4px 0" }}>
-            {name}
-          </h2>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--ng-online)", margin: 0 }}>
-            {type === "video" ? "Connecting video call..." : "Ringing..."}
-          </p>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12 }}>
-          <button
-            onClick={() => toast("Microphone muted")}
-            aria-label="Mute microphone"
-            style={{
-              width: 48, height: 48, borderRadius: "50%",
-              background: "var(--ng-hover)", border: "1px solid var(--ng-border)",
-              color: "var(--ng-text)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-            }}
-          >
-            🎤
-          </button>
-          <button
-            onClick={onClose}
-            aria-label="End call"
-            style={{
-              width: 54, height: 54, borderRadius: "50%",
-              background: "var(--ng-terracotta)", color: "#fff",
-              border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 4px 16px rgba(201, 116, 62, 0.4)",
-            }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.684A1 1 0 008.279 3H5z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const formatRelativeTime = (timestamp) => {
   if (!timestamp) return "";
@@ -259,11 +184,12 @@ const ChatWindow = () => {
   const { socket } = useSocket();
   const { authUser } = useAuth();
   const { selectedUser, selectedGroup, messages, onlineUsers, setSelectedGroup, setActiveSection, typingMap, isDetailsOpen, setIsDetailsOpen } = useChatStore();
+  const isGroup = Boolean(selectedGroup);
 
   const [showGroupInfo, setShowGroupInfo] = useState(false);
   const showDetails = isDetailsOpen;
   const setShowDetails = setIsDetailsOpen;
-  const [activeCall, setActiveCall] = useState(null); // 'voice' | 'video' | null
+  const { startCall } = useCall();
   const [inChatSearch, setInChatSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isNudged, setIsNudged] = useState(false);
@@ -574,7 +500,8 @@ const ChatWindow = () => {
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             {/* Voice call button */}
             <button
-              onClick={() => setActiveCall("voice")}
+              onClick={() => startCall?.("voice", selectedUser)}
+              disabled={!selectedUser || isGroup}
               aria-label="Start voice call"
               style={{
                 width: 44,
@@ -582,16 +509,19 @@ const ChatWindow = () => {
                 borderRadius: "var(--r-btn)",
                 background: "none",
                 border: "none",
-                cursor: "pointer",
+                cursor: !selectedUser || isGroup ? "not-allowed" : "pointer",
                 color: "var(--ng-muted)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 transition: "color 0.15s, background 0.15s",
+                opacity: !selectedUser || isGroup ? 0.5 : 1,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--ng-text)";
-                e.currentTarget.style.background = "var(--ng-hover)";
+                if (selectedUser && !isGroup) {
+                  e.currentTarget.style.color = "var(--ng-text)";
+                  e.currentTarget.style.background = "var(--ng-hover)";
+                }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.color = "var(--ng-muted)";
@@ -605,7 +535,8 @@ const ChatWindow = () => {
 
             {/* Video call button */}
             <button
-              onClick={() => setActiveCall("video")}
+              onClick={() => startCall?.("video", selectedUser)}
+              disabled={!selectedUser || isGroup}
               aria-label="Start video call"
               style={{
                 width: 44,
@@ -613,16 +544,18 @@ const ChatWindow = () => {
                 borderRadius: "var(--r-btn)",
                 background: "none",
                 border: "none",
-                cursor: "pointer",
+                cursor: !selectedUser || isGroup ? "not-allowed" : "pointer",
                 color: "var(--ng-muted)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                transition: "color 0.15s, background 0.15s",
+                opacity: !selectedUser || isGroup ? 0.5 : 1,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.color = "var(--ng-text)";
-                e.currentTarget.style.background = "var(--ng-hover)";
+                if (selectedUser && !isGroup) {
+                  e.currentTarget.style.color = "var(--ng-text)";
+                  e.currentTarget.style.background = "var(--ng-hover)";
+                }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.color = "var(--ng-muted)";
@@ -896,16 +829,6 @@ const ChatWindow = () => {
             setSelectedGroup(updatedGroup);
             setShowGroupInfo(false);
           }}
-        />
-      )}
-
-      {/* Active Call Modal */}
-      {activeCall && (
-        <CallModal
-          type={activeCall}
-          name={displayName}
-          avatarSrc={avatarSrc}
-          onClose={() => setActiveCall(null)}
         />
       )}
     </div>
