@@ -10,7 +10,8 @@ import {
     updateGroupName,
     clearGroup,
     getGroupInfo,
-    addMember
+    addMember,
+    removeMember
 } from "../routControlers/groupControler.js";
 
 const router = express.Router();
@@ -25,5 +26,9 @@ router.delete("/:id/clear", isLogin, clearGroup);
 router.get("/:id/info", isLogin, getGroupInfo);
 router.post("/:id/add-member", isLogin, addMember);
 router.post("/:id/members", isLogin, addMember);
+router.delete("/:id/members/:memberId", isLogin, removeMember);
+router.post("/:id/remove-member", isLogin, removeMember);
+router.delete("/:id/members", isLogin, removeMember);
+router.post("/:id/members/:memberId/remove", isLogin, removeMember);
 
 export default router;

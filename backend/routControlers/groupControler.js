@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Conversation from "../Models/conversationModels.js";
 import User from "../Models/userModels.js";
 import Message from "../Models/messageSchema.js";
-import { io } from "../socket/socket.js";
+import { io, getReciverSocketId } from "../socket/socket.js";
 
 const MAX_PIC_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg","image/jpg","image/png","image/webp","image/gif"];
@@ -307,7 +307,7 @@ export const getGroupInfo = async (req, res) => {
     }
 };
 
-// Admin: Add member(s) to group
+// Member: Add member(s) to group (any current group member can add registered users)
 export const addMember = async (req, res) => {
     try {
         const { id: groupId } = req.params;
@@ -325,11 +325,11 @@ export const addMember = async (req, res) => {
 
         // 3. Extract and normalize target member IDs (support memberId, userId, or members array)
         let targetMemberIds = [];
-        if (req.body.memberId) {
+        if (req.body?.memberId) {
             targetMemberIds = [req.body.memberId];
-        } else if (req.body.userId) {
+        } else if (req.body?.userId) {
             targetMemberIds = [req.body.userId];
-        } else if (Array.isArray(req.body.members) && req.body.members.length > 0) {
+        } else if (Array.isArray(req.body?.members) && req.body.members.length > 0) {
             targetMemberIds = req.body.members;
         }
 
@@ -350,19 +350,25 @@ export const addMember = async (req, res) => {
             return res.status(404).json({ success: false, message: "Group not found" });
         }
 
-        // 6 & 7. Verify requesting user is an administrator of that group
-        const adminId = (group.groupAdmin?._id || group.groupAdmin)?.toString();
-        if (!adminId || adminId !== userId.toString()) {
-            return res.status(403).json({ success: false, message: "Only the group admin can add members" });
+        // 6 & 7. Verify requesting user is a member of that group
+        const isMember = group.participants.some(
+            p => (p._id || p).toString() === userId.toString()
+        );
+        if (!isMember) {
+            return res.status(403).json({ success: false, message: "Only group members can add new members" });
         }
 
         // 8. Prevent duplicate members
         const existingParticipantIds = new Set(
             group.participants.map(p => (p._id || p).toString())
         );
-        const newMemberIds = targetMemberIds
-            .map(id => id.toString())
-            .filter(id => !existingParticipantIds.has(id));
+        const newMemberIds = [
+            ...new Set(
+                targetMemberIds
+                    .map(id => id.toString())
+                    .filter(id => !existingParticipantIds.has(id))
+            )
+        ];
 
         if (newMemberIds.length === 0) {
             return res.status(400).json({ success: false, message: "User is already a member of this group" });
@@ -374,12 +380,12 @@ export const addMember = async (req, res) => {
             return res.status(404).json({ success: false, message: "One or more target users do not exist" });
         }
 
-        // 10. Concurrency-safe atomic conditional update verifying groupAdmin at write time
+        // 10. Concurrency-safe atomic conditional update verifying participant status at write time
         const updated = await Conversation.findOneAndUpdate(
             {
                 _id: groupId,
                 isGroup: true,
-                groupAdmin: userId
+                participants: userId
             },
             { $addToSet: { participants: { $each: newMemberIds } } },
             { new: true }
@@ -388,16 +394,18 @@ export const addMember = async (req, res) => {
             .populate("groupAdmin", "fullname username profilepic");
 
         if (!updated) {
-            // Safe recheck: determine whether group does not exist or user is no longer admin
             const groupExists = await Conversation.findOne({ _id: groupId, isGroup: true });
             if (!groupExists) {
                 return res.status(404).json({ success: false, message: "Group not found" });
             }
-            return res.status(403).json({ success: false, message: "Only the group admin can add members" });
+            return res.status(403).json({ success: false, message: "Only group members can add new members" });
         }
 
         if (io) {
             io.to(`group:${groupId}`).emit("groupUpdated", updated);
+            newMemberIds.forEach(mId => {
+                io.to(`user:${mId}`).emit("groupUpdated", updated);
+            });
         }
 
         return res.status(200).json({
@@ -408,6 +416,121 @@ export const addMember = async (req, res) => {
 
     } catch (error) {
         console.error(`Error in addMember: ${error.message}`);
+        return res.status(500).json({ success: false, message: "Internal server error" });
+    }
+};
+
+// Admin: Remove member from group (only group admin can remove members)
+export const removeMember = async (req, res) => {
+    try {
+        const { id: groupId } = req.params;
+        const userId = req.user?._id;
+
+        // 1. Verify that the request is authenticated
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
+        // 2. Validate group ID format
+        if (!groupId || !mongoose.Types.ObjectId.isValid(groupId)) {
+            return res.status(400).json({ success: false, message: "Invalid group ID format" });
+        }
+
+        // 3. Extract target member ID from params or body
+        const targetMemberId = req.params?.memberId || req.body?.memberId || req.body?.userId;
+
+        if (!targetMemberId || !mongoose.Types.ObjectId.isValid(targetMemberId)) {
+            return res.status(400).json({ success: false, message: "Invalid member ID format" });
+        }
+
+        // 4. Find target group; return 404 if not found
+        const group = await Conversation.findOne({ _id: groupId, isGroup: true });
+        if (!group) {
+            return res.status(404).json({ success: false, message: "Group not found" });
+        }
+
+        // 5. Verify requesting user is the group admin
+        const adminId = (group.groupAdmin?._id || group.groupAdmin)?.toString();
+        if (!adminId || adminId !== userId.toString()) {
+            return res.status(403).json({ success: false, message: "Only the group admin can remove members" });
+        }
+
+        // 6. Admin cannot remove themselves
+        if (targetMemberId.toString() === adminId) {
+            return res.status(400).json({ success: false, message: "Group admin cannot be removed from the group" });
+        }
+
+        // 7. Verify target is a current participant
+        const isParticipant = group.participants.some(
+            p => (p._id || p).toString() === targetMemberId.toString()
+        );
+        if (!isParticipant) {
+            return res.status(400).json({ success: false, message: "User is not a member of this group" });
+        }
+
+        // 8. Concurrency-safe atomic conditional update verifying groupAdmin and participant membership at write time
+        const updated = await Conversation.findOneAndUpdate(
+            {
+                _id: groupId,
+                isGroup: true,
+                groupAdmin: userId,
+                participants: targetMemberId
+            },
+            { $pull: { participants: targetMemberId } },
+            { new: true }
+        )
+            .populate("participants", "fullname username profilepic")
+            .populate("groupAdmin", "fullname username profilepic");
+
+        if (!updated) {
+            const groupExists = await Conversation.findOne({ _id: groupId, isGroup: true });
+            if (!groupExists) {
+                return res.status(404).json({ success: false, message: "Group not found" });
+            }
+            const currentAdmin = (groupExists.groupAdmin?._id || groupExists.groupAdmin)?.toString();
+            if (currentAdmin !== userId.toString()) {
+                return res.status(403).json({ success: false, message: "Only the group admin can remove members" });
+            }
+            return res.status(400).json({ success: false, message: "User is not a member of this group" });
+        }
+
+        // 9. Evict removed user's sockets from group room & broadcast real-time events
+        try {
+            const targetSockets = getReciverSocketId ? getReciverSocketId(targetMemberId.toString()) : null;
+            if (targetSockets && Array.isArray(targetSockets)) {
+                targetSockets.forEach(sId => {
+                    const s = io?.sockets?.sockets?.get(sId);
+                    if (s) {
+                        s.leave(`group:${groupId}`);
+                    }
+                });
+            }
+            if (io) {
+                if (io.in) {
+                    try {
+                        io.in(`user:${targetMemberId}`).socketsLeave(`group:${groupId}`);
+                    } catch (e) {
+                        // fallback handled above
+                    }
+                }
+                io.to(`group:${groupId}`).emit("groupUpdated", updated);
+                io.to(`user:${targetMemberId}`).emit("groupMemberRemoved", {
+                    groupId,
+                    removedUserId: targetMemberId.toString()
+                });
+            }
+        } catch (sockErr) {
+            console.error("Error updating sockets on member removal:", sockErr);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Member removed successfully",
+            group: updated
+        });
+
+    } catch (error) {
+        console.error(`Error in removeMember: ${error.message}`);
         return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
