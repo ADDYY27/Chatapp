@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import useGetUsers from "../hooks/useGetUsers";
 import useGetCurrentChatters from "../hooks/useGetCurrentChatters";
@@ -320,6 +320,20 @@ const Sidebar = () => {
   const { chatters: fetchedChatters, loading: chattersLoading } = useGetCurrentChatters();
   const { groups, loading: groupsLoading, getGroups } = useGetGroups();
   const { logout, loading: loggingOut } = useLogout();
+
+  useEffect(() => {
+    const handleGroupSync = () => {
+      getGroups();
+    };
+
+    window.addEventListener("chatapp:groupUpdated", handleGroupSync);
+    window.addEventListener("chatapp:groupMemberRemoved", handleGroupSync);
+
+    return () => {
+      window.removeEventListener("chatapp:groupUpdated", handleGroupSync);
+      window.removeEventListener("chatapp:groupMemberRemoved", handleGroupSync);
+    };
+  }, [getGroups]);
 
   const [pinnedIds, setPinnedIds] = useState(() => {
     try {

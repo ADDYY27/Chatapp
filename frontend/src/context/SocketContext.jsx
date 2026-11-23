@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 import useChatStore from "../store/useChatStore";
+import toast from "react-hot-toast";
 
 const SocketContext = createContext();
 
@@ -89,6 +90,29 @@ export const SocketProvider = ({ children }) => {
         addGroupMessage(newMessage, authUser._id);
       });
 
+      // Real-time group updates (members added/removed, info changed)
+      newSocket.on("groupUpdated", (updatedGroup) => {
+        const state = useChatStore.getState();
+        if (state.selectedGroup?._id?.toString() === updatedGroup?._id?.toString()) {
+          state.setSelectedGroup(updatedGroup);
+        }
+        window.dispatchEvent(new CustomEvent("chatapp:groupUpdated", { detail: { group: updatedGroup } }));
+      });
+
+      // Member removed notification & cleanup
+      newSocket.on("groupMemberRemoved", ({ groupId, removedUserId }) => {
+        const state = useChatStore.getState();
+        const currentUserId = authUser?._id?.toString();
+        if (removedUserId?.toString() === currentUserId) {
+          if (state.selectedGroup?._id?.toString() === groupId?.toString()) {
+            state.setSelectedGroup(null);
+            useChatStore.setState({ messages: [] });
+          }
+          toast.error("You have been removed from the group");
+        }
+        window.dispatchEvent(new CustomEvent("chatapp:groupMemberRemoved", { detail: { groupId, removedUserId } }));
+      });
+
       setSocket(newSocket);
 
       return () => {
@@ -102,6 +126,8 @@ export const SocketProvider = ({ children }) => {
         newSocket.off("messagePinned");
         newSocket.off("nudge");
         newSocket.off("groupMessage");
+        newSocket.off("groupUpdated");
+        newSocket.off("groupMemberRemoved");
         newSocket.close();
       };
     } else {

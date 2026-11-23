@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axiosInstance from "../utils/axios";
 
 const useGetGroups = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  const getGroups = async () => {
+  const getGroups = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -19,11 +19,11 @@ const useGetGroups = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     getGroups();
-  }, []);
+  }, [getGroups]);
 
   return {
     groups,
