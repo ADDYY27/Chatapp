@@ -4,6 +4,7 @@ import useChatStore from "../store/useChatStore";
 import Avatar from "./Avatar";
 import ChatWindow from "./ChatWindow";
 import toast from "react-hot-toast";
+import AddMemberModal from "./AddMemberModal";
 import {
   getGroupPolls,
   voteGroupPoll,
@@ -19,8 +20,9 @@ const TABS = ["Chat", "Polls", "Tasks", "Files", "Events"];
 
 const GroupView = () => {
   const { authUser } = useAuth();
-  const { selectedGroup, onlineUsers } = useChatStore();
+  const { selectedGroup, setSelectedGroup, onlineUsers } = useChatStore();
   const [activeTab, setActiveTab] = useState("Chat");
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
   const groupId = selectedGroup?._id || "default-group";
   const [polls, setPolls] = useState(() => getGroupPolls(groupId));
@@ -120,10 +122,7 @@ const GroupView = () => {
   };
 
   const handleInvite = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.origin);
-    }
-    toast.success(`Invite link for "${selectedGroup.groupName}" copied!`);
+    setShowAddMemberModal(true);
   };
 
   // Completed task stats
@@ -626,6 +625,18 @@ const GroupView = () => {
           </div>
         )}
       </div>
+      {showAddMemberModal && selectedGroup && (
+        <AddMemberModal
+          group={selectedGroup}
+          onClose={() => setShowAddMemberModal(false)}
+          onMembersAdded={(updated) => {
+            setSelectedGroup(updated);
+            window.dispatchEvent(
+              new CustomEvent("chatapp:groupUpdated", { detail: { group: updated } })
+            );
+          }}
+        />
+      )}
     </div>
   );
 };

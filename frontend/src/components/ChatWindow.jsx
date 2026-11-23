@@ -13,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import Avatar from "./Avatar";
 import toast from "react-hot-toast";
 import { useCall } from "../context/CallContext";
+import AddMemberModal from "./AddMemberModal";
 
 /* ============================================================
    Group Info Modal (for group chats)
@@ -23,6 +24,9 @@ const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
   const [uploading, setUploading] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(group.groupName);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const [removing, setRemoving] = useState(false);
   const fileRef = useRef(null);
 
   const isAdmin = (group.groupAdmin?._id || group.groupAdmin)?.toString() === authUser?._id?.toString();
@@ -56,103 +60,284 @@ const GroupInfoModal = ({ group, authUser, onClose, onGroupUpdated }) => {
     }
   };
 
+  const handleRemoveMember = async () => {
+    if (!confirmRemove) return;
+    const memberId = (confirmRemove._id || confirmRemove).toString();
+    try {
+      setRemoving(true);
+      const { data } = await axiosInstance.delete(`/group/${group._id}/members/${memberId}`);
+      if (data.success) {
+        toast.success(`${confirmRemove.fullname || "Member"} removed from group`);
+        onGroupUpdated(data.group);
+        setConfirmRemove(null);
+      }
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to remove member");
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, zIndex: 60,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        background: "rgba(0,0,0,0.65)",
-      }}
-      onClick={onClose}
-    >
+    <>
       <div
         style={{
-          background: "var(--ng-panel)", borderRadius: "var(--r-card)",
-          border: "1px solid var(--ng-border)", width: 320, maxHeight: "85vh",
-          overflowY: "auto",
+          position: "fixed", inset: 0, zIndex: 60,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.65)",
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={onClose}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px 12px", borderBottom: "1px solid var(--ng-border)" }}>
-          <p style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 16, color: "var(--ng-text)", margin: 0 }}>Group Info</p>
-          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", fontSize: 18, padding: 4 }}>✕</button>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 20px 12px" }}>
-          <div style={{ position: "relative", cursor: isAdmin ? "pointer" : "default" }} onClick={() => isAdmin && !uploading && fileRef.current?.click()}>
-            <Avatar src={group.groupPic} name={group.groupName} size={80} ring={true} />
-            {isAdmin && (
-              <div
-                style={{
-                  position: "absolute", inset: 0, borderRadius: "50%", background: "rgba(0,0,0,0.5)",
-                  display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s",
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-                onMouseLeave={e => e.currentTarget.style.opacity = "0"}
-              >
-                {uploading ? <span className="loading loading-spinner loading-xs" style={{ color: "#fff" }} /> : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2} aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                )}
-              </div>
-            )}
-            {isAdmin && <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePicChange} />}
+        <div
+          style={{
+            background: "var(--ng-panel)", borderRadius: "var(--r-card)",
+            border: "1px solid var(--ng-border)", width: 340, maxWidth: "92vw", maxHeight: "85vh",
+            overflowY: "auto",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 20px 12px", borderBottom: "1px solid var(--ng-border)" }}>
+            <p style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 16, color: "var(--ng-text)", margin: 0 }}>Group Info</p>
+            <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", fontSize: 18, padding: 4 }}>✕</button>
           </div>
 
-          <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
-            {editingName ? (
-              <>
-                <input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleNameSave()}
-                  autoFocus
-                  style={{ background: "var(--ng-hover)", border: "1px solid var(--ng-border)", color: "var(--ng-text)", borderRadius: "var(--r-btn)", padding: "6px 10px", fontFamily: "var(--font-body)", fontSize: 14, outline: "none" }}
-                />
-                <button onClick={handleNameSave} style={{ background: "var(--ng-accent)", border: "none", cursor: "pointer", color: "var(--ng-accent-fg)", borderRadius: "var(--r-btn)", padding: "6px 12px", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}>Save</button>
-                <button onClick={() => { setEditingName(false); setNewName(group.groupName); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", fontSize: 16, padding: 4 }}>✕</button>
-              </>
-            ) : (
-              <>
-                <p style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 18, color: "var(--ng-text)", margin: 0 }}>{group.groupName}</p>
-                {isAdmin && (
-                  <button aria-label="Edit group name" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", padding: 2, borderRadius: 6 }} onClick={() => setEditingName(true)}>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ng-muted)", margin: "4px 0 0" }}>{group.participants?.length || 0} Members</p>
-        </div>
-
-        <div style={{ padding: "0 20px 20px" }}>
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--ng-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 10px" }}>Members</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {group.participants?.map((member) => {
-              const memberId = (member._id || member)?.toString();
-              const isGroupAdmin = memberId === adminId;
-              return (
-                <div key={memberId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Avatar src={member.profilepic} name={member.fullname} size={36} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ng-text)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {member.fullname}{isGroupAdmin && <span style={{ marginLeft: 6 }}>👑</span>}
-                    </p>
-                    <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ng-muted)", margin: 0 }}>@{member.username}</p>
-                  </div>
-                  {isGroupAdmin && (
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--ng-accent)", background: "rgba(232,163,61,0.15)", borderRadius: 6, padding: "2px 7px" }}>Admin</span>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px 20px 12px" }}>
+            <div style={{ position: "relative", cursor: isAdmin ? "pointer" : "default" }} onClick={() => isAdmin && !uploading && fileRef.current?.click()}>
+              <Avatar src={group.groupPic} name={group.groupName} size={80} ring={true} />
+              {isAdmin && (
+                <div
+                  style={{
+                    position: "absolute", inset: 0, borderRadius: "50%", background: "rgba(0,0,0,0.5)",
+                    display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s",
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+                  onMouseLeave={e => e.currentTarget.style.opacity = "0"}
+                >
+                  {uploading ? <span className="loading loading-spinner loading-xs" style={{ color: "#fff" }} /> : (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                   )}
                 </div>
-              );
-            })}
+              )}
+              {isAdmin && <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handlePicChange} />}
+            </div>
+
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              {editingName ? (
+                <>
+                  <input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleNameSave()}
+                    autoFocus
+                    style={{ background: "var(--ng-hover)", border: "1px solid var(--ng-border)", color: "var(--ng-text)", borderRadius: "var(--r-btn)", padding: "6px 10px", fontFamily: "var(--font-body)", fontSize: 14, outline: "none" }}
+                  />
+                  <button onClick={handleNameSave} style={{ background: "var(--ng-accent)", border: "none", cursor: "pointer", color: "var(--ng-accent-fg)", borderRadius: "var(--r-btn)", padding: "6px 12px", fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13 }}>Save</button>
+                  <button onClick={() => { setEditingName(false); setNewName(group.groupName); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", fontSize: 16, padding: 4 }}>✕</button>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 18, color: "var(--ng-text)", margin: 0 }}>{group.groupName}</p>
+                  {isAdmin && (
+                    <button aria-label="Edit group name" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ng-muted)", padding: 2, borderRadius: 6 }} onClick={() => setEditingName(true)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            <p style={{ fontFamily: "var(--font-body)", fontSize: 12, color: "var(--ng-muted)", margin: "4px 0 0" }}>{group.participants?.length || 0} Members</p>
+          </div>
+
+          <div style={{ padding: "0 20px 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", margin: "0 0 10px" }}>
+              <p style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--ng-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Members</p>
+              <button
+                onClick={() => setShowAddMember(true)}
+                style={{
+                  background: "var(--ng-hover)",
+                  border: "1px solid var(--ng-border)",
+                  color: "var(--ng-accent)",
+                  borderRadius: "var(--r-btn)",
+                  padding: "3px 10px",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  transition: "all 0.15s",
+                }}
+              >
+                + Add Member
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {group.participants?.map((member) => {
+                const memberId = (member._id || member)?.toString();
+                const isGroupAdmin = memberId === adminId;
+                return (
+                  <div key={memberId} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <Avatar src={member.profilepic} name={member.fullname} size={36} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: "var(--font-body)", fontWeight: 600, fontSize: 13, color: "var(--ng-text)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {member.fullname}{isGroupAdmin && <span style={{ marginLeft: 6 }}>👑</span>}
+                      </p>
+                      <p style={{ fontFamily: "var(--font-body)", fontSize: 11, color: "var(--ng-muted)", margin: 0 }}>@{member.username}</p>
+                    </div>
+                    {isGroupAdmin ? (
+                      <span style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 600, color: "var(--ng-accent)", background: "rgba(232,163,61,0.15)", borderRadius: 6, padding: "2px 7px" }}>Admin</span>
+                    ) : isAdmin ? (
+                      <button
+                        onClick={() => setConfirmRemove(member)}
+                        title={`Remove ${member.fullname || member.username}`}
+                        style={{
+                          background: "transparent",
+                          border: "1px solid rgba(239, 68, 68, 0.3)",
+                          color: "rgba(239, 68, 68, 0.9)",
+                          borderRadius: 6,
+                          padding: "3px 8px",
+                          fontFamily: "var(--font-body)",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.15)";
+                          e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.6)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                          e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
+                        }}
+                      >
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Confirmation Dialog for Member Removal */}
+      {confirmRemove && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 80,
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(2px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onClick={() => !removing && setConfirmRemove(null)}
+        >
+          <div
+            style={{
+              background: "var(--ng-panel)",
+              borderRadius: "var(--r-card)",
+              border: "1px solid var(--ng-border)",
+              width: 320,
+              maxWidth: "90vw",
+              padding: 20,
+              boxShadow: "0 10px 30px rgba(0,0,0,0.6)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h4
+              style={{
+                fontFamily: "var(--font-heading)",
+                fontSize: 15,
+                fontWeight: 700,
+                color: "var(--ng-text)",
+                margin: "0 0 8px",
+              }}
+            >
+              Remove Member?
+            </h4>
+            <p
+              style={{
+                fontFamily: "var(--font-body)",
+                fontSize: 13,
+                color: "var(--ng-muted)",
+                margin: "0 0 16px",
+                lineHeight: 1.4,
+              }}
+            >
+              Are you sure you want to remove{" "}
+              <strong style={{ color: "var(--ng-text)" }}>
+                {confirmRemove.fullname || confirmRemove.username}
+              </strong>{" "}
+              from {group.groupName}?
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                disabled={removing}
+                onClick={() => setConfirmRemove(null)}
+                style={{
+                  background: "var(--ng-hover)",
+                  border: "1px solid var(--ng-border)",
+                  color: "var(--ng-text)",
+                  borderRadius: "var(--r-btn)",
+                  padding: "6px 14px",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                disabled={removing}
+                onClick={handleRemoveMember}
+                style={{
+                  background: "rgba(239, 68, 68, 0.9)",
+                  border: "none",
+                  color: "#fff",
+                  borderRadius: "var(--r-btn)",
+                  padding: "6px 14px",
+                  fontFamily: "var(--font-body)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: removing ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                {removing ? (
+                  <span className="loading loading-spinner loading-xs" />
+                ) : (
+                  "Remove"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {showAddMember && (
+        <AddMemberModal
+          group={group}
+          onClose={() => setShowAddMember(false)}
+          onMembersAdded={(updated) => {
+            onGroupUpdated(updated);
+            setShowAddMember(false);
+          }}
+        />
+      )}
+    </>
   );
 };
 
